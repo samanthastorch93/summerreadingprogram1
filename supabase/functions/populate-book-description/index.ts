@@ -15,6 +15,12 @@ const clean = (text: string) =>
     .replace(/\s+/g, " ")
     .trim();
 
+function cleanIsbn(isbn: string | null): string | null {
+  if (!isbn) return null;
+  const cleaned = isbn.replace(/[^0-9Xx]/g, '').toUpperCase();
+  return cleaned.length >= 10 ? cleaned : null;
+}
+
 function isGoodDescription(text: string | null): boolean {
   if (!text) return false;
   const t = text.trim();
@@ -41,9 +47,10 @@ async function fetchFullVolumeDescription(volumeId: string): Promise<string | nu
 async function fetchFromGoogleBooks(
   title: string,
   author: string,
-  isbn: string | null,
+  rawIsbn: string | null,
 ): Promise<string | null> {
   const key = `&key=${GOOGLE_BOOKS_API_KEY}`;
+  const isbn = cleanIsbn(rawIsbn);
 
   const searchUrls: string[] = [];
 
@@ -87,7 +94,7 @@ async function fetchFromGoogleBooks(
 async function fetchFromOpenLibrary(
   title: string,
   author: string,
-  isbn: string | null,
+  rawIsbn: string | null,
 ): Promise<string | null> {
   const extractWork = (obj: any): string | null => {
     const value = obj?.description ?? obj?.notes ?? null;
@@ -95,6 +102,8 @@ async function fetchFromOpenLibrary(
     const text = typeof value === "string" ? value : (value.value ?? null);
     return isGoodDescription(text) ? text : null;
   };
+
+  const isbn = cleanIsbn(rawIsbn);
 
   try {
     // ISBN → edition → follow work key → Work API (most likely to have a real description)
