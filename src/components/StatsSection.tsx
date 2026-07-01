@@ -33,7 +33,9 @@ export default function StatsSection({ userId, selectedUserId, selectedUserName,
   }, [userId]);
 
   useEffect(() => {
-    if (selectedUserId && selectedUserId !== userId) {
+    if (selectedUserId && selectedUserId === userId) {
+      setMode('mine');
+    } else if (selectedUserId && selectedUserId !== userId) {
       setMode('selected');
       loadSelectedStats(selectedUserId);
     } else if (!selectedUserId) {
