@@ -1,0 +1,1 @@
+ALTER TABLE time_logs ADD COLUMN IF NOT EXISTS status_override text CHECK (status_override IN ('want_to_read', 'reading', 'finished'));

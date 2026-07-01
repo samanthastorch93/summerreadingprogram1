@@ -1,0 +1,1 @@
+ALTER TABLE reading_entries ADD COLUMN IF NOT EXISTS finished_at timestamptz;

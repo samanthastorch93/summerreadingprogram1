@@ -1,0 +1,1 @@
+ALTER TABLE time_logs ADD COLUMN IF NOT EXISTS media_url text;

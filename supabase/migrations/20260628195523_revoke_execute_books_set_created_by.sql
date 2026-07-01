@@ -1,0 +1,1 @@
+REVOKE EXECUTE ON FUNCTION public.books_set_created_by() FROM anon, authenticated;
