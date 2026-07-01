@@ -94,6 +94,10 @@ export default function ProfileModal({ profile, onClose, onSaved }: Props) {
         .from('profiles').select('id').eq('username', cleanUsername).neq('id', profile.id).maybeSingle();
       if (existing) throw new Error('Username already taken.');
 
+      const { data: reserved } = await supabase
+        .from('reserved_usernames').select('reserved_for').eq('username', cleanUsername).maybeSingle();
+      if (reserved && reserved.reserved_for !== profile.id) throw new Error('Username not available.');
+
       let avatarUrl = profile.avatar_url;
 
       if (clearAvatar) {

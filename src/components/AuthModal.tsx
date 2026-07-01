@@ -56,6 +56,10 @@ export default function AuthModal({ onProfileCreated }: Props) {
         .from('profiles').select('id').eq('username', cleanUsername).maybeSingle();
       if (existing) { setError('Username already taken.'); setLoading(false); return; }
 
+      const { data: reserved } = await supabase
+        .from('reserved_usernames').select('username').eq('username', cleanUsername).maybeSingle();
+      if (reserved) { setError('Username not available.'); setLoading(false); return; }
+
       const { data: authData, error: signUpErr } = await supabase.auth.signUp({ email, password });
       if (signUpErr) { setError(signUpErr.message); setLoading(false); return; }
 
