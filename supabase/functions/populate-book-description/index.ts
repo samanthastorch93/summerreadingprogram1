@@ -15,6 +15,15 @@ const clean = (text: string) =>
     .replace(/\s+/g, " ")
     .trim();
 
+function isGoodDescription(text: string | null): boolean {
+  if (!text) return false;
+  const t = text.trim();
+  if (t.length < 50) return false;
+  if (/no description/i.test(t)) return false;
+  if (/preview/i.test(t)) return false;
+  return true;
+}
+
 async function fetchFullVolumeDescription(volumeId: string): Promise<string | null> {
   try {
     const res = await fetch(
@@ -57,12 +66,14 @@ async function fetchFromGoogleBooks(
       const data = await res.json();
 
       for (const item of data.items ?? []) {
-        if (item.volumeInfo?.description) {
-          return clean(item.volumeInfo.description);
-        }
+        const inline = item.volumeInfo?.description
+          ? clean(item.volumeInfo.description)
+          : null;
+        if (isGoodDescription(inline)) return inline!;
+
         if (item.id) {
           const full = await fetchFullVolumeDescription(item.id);
-          if (full) return full;
+          if (isGoodDescription(full)) return full!;
         }
       }
     } catch (err) {
@@ -78,27 +89,38 @@ async function fetchFromOpenLibrary(
   author: string,
   isbn: string | null,
 ): Promise<string | null> {
-  const extract = (obj: any): string | null => {
+  const extractWork = (obj: any): string | null => {
     const value = obj?.description ?? obj?.notes ?? null;
     if (!value) return null;
-    if (typeof value === "string") return value;
-    return value.value ?? null;
+    const text = typeof value === "string" ? value : (value.value ?? null);
+    return isGoodDescription(text) ? text : null;
   };
 
   try {
+    // ISBN → edition → follow work key → Work API (most likely to have a real description)
     if (isbn) {
-      const res = await fetch(
-        `https://openlibrary.org/api/books?bibkeys=ISBN:${isbn}&format=json&jscmd=data`,
-      );
-      if (res.ok) {
-        const data = await res.json();
-        const synopsis = extract(data[`ISBN:${isbn}`]);
-        if (synopsis) return synopsis;
+      try {
+        const editionRes = await fetch(`https://openlibrary.org/isbn/${isbn}.json`);
+        if (editionRes.ok) {
+          const edition = await editionRes.json();
+          const workKey: string | null = edition?.works?.[0]?.key ?? null;
+          if (workKey) {
+            const workRes = await fetch(`https://openlibrary.org${workKey}.json`);
+            if (workRes.ok) {
+              const workData = await workRes.json();
+              const synopsis = extractWork(workData);
+              if (synopsis) return synopsis;
+            }
+          }
+        }
+      } catch (err) {
+        console.error("OpenLibrary ISBN→Work error", err);
       }
     }
 
+    // Fallback: search by title/author, then follow each result's work key
     const search = await fetch(
-      `https://openlibrary.org/search.json?title=${encodeURIComponent(title)}&author=${encodeURIComponent(author)}&limit=2`,
+      `https://openlibrary.org/search.json?title=${encodeURIComponent(title)}&author=${encodeURIComponent(author)}&limit=3`,
     );
     if (!search.ok) return null;
 
@@ -106,11 +128,15 @@ async function fetchFromOpenLibrary(
 
     for (const doc of results.docs ?? []) {
       if (!doc.key) continue;
-      const work = await fetch(`https://openlibrary.org${doc.key}.json`);
-      if (!work.ok) continue;
-      const workData = await work.json();
-      const synopsis = extract(workData);
-      if (synopsis) return synopsis;
+      try {
+        const work = await fetch(`https://openlibrary.org${doc.key}.json`);
+        if (!work.ok) continue;
+        const workData = await work.json();
+        const synopsis = extractWork(workData);
+        if (synopsis) return synopsis;
+      } catch {
+        continue;
+      }
     }
   } catch (err) {
     console.error("OpenLibrary error", err);
@@ -177,7 +203,7 @@ Deno.serve(async (req: Request) => {
   }
 
   let description = await fetchFromGoogleBooks(book.title, book.author, book.isbn);
-  if (!description) {
+  if (!isGoodDescription(description)) {
     description = await fetchFromOpenLibrary(book.title, book.author, book.isbn);
   }
 
