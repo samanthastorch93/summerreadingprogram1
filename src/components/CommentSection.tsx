@@ -172,7 +172,11 @@ export default function CommentSection({ entryId, entryOwnerId, currentUser, all
   function handleReply(comment: Comment) {
     const profile = allProfiles.find((p) => p.id === comment.user_id) ?? comment.profile;
     const username = profile?.username ?? '';
-    setReplyingTo(comment);
+    // Always thread under the top-level comment so replies stay flat
+    const topLevelComment = comment.parent_comment_id
+      ? (comments.find((c) => c.id === comment.parent_comment_id) ?? comment)
+      : comment;
+    setReplyingTo(topLevelComment);
     setText(`@${username} `);
     textareaRef.current?.focus();
   }
@@ -317,15 +321,13 @@ export default function CommentSection({ entryId, entryOwnerId, currentUser, all
             />
           )}
           <div className="flex items-center gap-3">
-            {!isReply && (
-              <button
-                onClick={() => handleReply(comment)}
-                className="mt-1 flex items-center gap-1 text-[11px] text-gray-400 hover:text-brand-blue transition-colors"
-              >
-                <CornerDownRight className="w-3 h-3" />
-                Reply
-              </button>
-            )}
+            <button
+              onClick={() => handleReply(comment)}
+              className="mt-1 flex items-center gap-1 text-[11px] text-gray-400 hover:text-brand-blue transition-colors"
+            >
+              <CornerDownRight className="w-3 h-3" />
+              Reply
+            </button>
             <button
               onClick={() => toggleLike(comment.id)}
               className={`mt-1 flex items-center gap-1 text-[11px] transition-colors ${
