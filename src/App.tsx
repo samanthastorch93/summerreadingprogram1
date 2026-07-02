@@ -143,6 +143,7 @@ export default function App() {
         onEdit={(entry) => setEditEntry(entry)}
         statusFilter={statusFilter}
         onStatusFilter={setStatusFilter}
+        onSelectUser={(userId) => { setSelectedUserId(userId); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
       />
 
       {(showLogModal || editEntry) && (

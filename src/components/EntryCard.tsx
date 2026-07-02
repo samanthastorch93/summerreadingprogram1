@@ -24,6 +24,7 @@ interface Props {
   isHidden?: boolean;
   onRefresh: () => void;
   onEdit?: (entry: ReadingEntry) => void;
+  onSelectUser: (userId: string) => void;
 }
 
 const STATUS_STYLES: Record<string, string> = {
@@ -79,6 +80,7 @@ export default function EntryCard({
   isHidden = false,
   onRefresh,
   onEdit,
+  onSelectUser,
 }: Props) {
   const [commentsOpen, setCommentsOpen] = useState(autoExpandComments);
   const [synopsisOpen, setSynopsisOpen] = useState(false);
@@ -333,7 +335,10 @@ export default function EntryCard({
           <AvatarIcon avatarColor={profile?.avatar_color ?? '#888'} userId={profile?.id ?? ''} size="md" className="border-2 border-brand-blue" />
         )}
         <p className="text-sm text-gray-700 min-w-0 flex-1">
-          <span className="font-semibold text-gray-900">{profile?.username ?? 'Unknown'}</span>
+          <button
+            onClick={() => { if (profile?.id) { onSelectUser(profile.id); window.scrollTo({ top: 0, behavior: 'smooth' }); } }}
+            className="font-semibold text-gray-900 hover:underline cursor-pointer"
+          >{profile?.username ?? 'Unknown'}</button>
           {' '}
           <span className="text-gray-500">{phrase}</span>
         </p>

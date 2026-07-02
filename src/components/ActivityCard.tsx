@@ -20,9 +20,10 @@ interface Props {
   allProfiles: Profile[];
   currentUser: Profile;
   onRefresh: () => void;
+  onSelectUser: (userId: string) => void;
 }
 
-export default function ActivityCard({ log, allProfiles, currentUser, onRefresh }: Props) {
+export default function ActivityCard({ log, allProfiles, currentUser, onRefresh, onSelectUser }: Props) {
   const profile = allProfiles.find((p) => p.id === log.user_id) ?? log.profile;
   const book = log.book;
   const isFinishedEvent = log.minutes_added === 0 && log.status_override === 'finished';
@@ -239,7 +240,10 @@ export default function ActivityCard({ log, allProfiles, currentUser, onRefresh 
           <AvatarIcon avatarColor={profile?.avatar_color ?? '#888'} userId={profile?.id ?? ''} size="md" className="border-2 border-brand-blue" />
         )}
         <p className="text-sm text-gray-700 min-w-0 flex-1">
-          <span className="font-semibold text-gray-900">{profile?.username ?? 'Unknown'}</span>
+          <button
+            onClick={() => { if (profile?.id) { onSelectUser(profile.id); window.scrollTo({ top: 0, behavior: 'smooth' }); } }}
+            className="font-semibold text-gray-900 hover:underline cursor-pointer"
+          >{profile?.username ?? 'Unknown'}</button>
           {' '}
           {isFinishedEvent ? (
             <>

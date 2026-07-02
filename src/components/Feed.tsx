@@ -22,6 +22,7 @@ interface Props {
   onEdit: (entry: ReadingEntry) => void;
   statusFilter: Status | null;
   onStatusFilter: (status: Status | null) => void;
+  onSelectUser: (userId: string) => void;
 }
 
 const TABS: { key: FilterTab; label: string }[] = [
@@ -31,7 +32,7 @@ const TABS: { key: FilterTab; label: string }[] = [
   { key: 'finished', label: 'Finished' },
 ];
 
-export default function Feed({ currentUser, allProfiles, selectedUserId, refreshKey, focusedEntryId, onRefresh, onEdit, statusFilter, onStatusFilter }: Props) {
+export default function Feed({ currentUser, allProfiles, selectedUserId, refreshKey, focusedEntryId, onRefresh, onEdit, statusFilter, onStatusFilter, onSelectUser }: Props) {
   const [items, setItems] = useState<FeedItem[]>([]);
   const [commentedEntryIds, setCommentedEntryIds] = useState<Set<string>>(new Set());
   const [hiddenEntryIds, setHiddenEntryIds] = useState<Set<string>>(new Set());
@@ -233,6 +234,7 @@ export default function Feed({ currentUser, allProfiles, selectedUserId, refresh
                       allProfiles={allProfiles}
                       currentUser={currentUser}
                       onRefresh={onRefresh}
+                      onSelectUser={onSelectUser}
                     />
                   );
                 }
@@ -248,6 +250,7 @@ export default function Feed({ currentUser, allProfiles, selectedUserId, refresh
                     isHidden={hiddenEntryIds.has(item.data.id)}
                     onRefresh={onRefresh}
                     onEdit={onEdit}
+                    onSelectUser={onSelectUser}
                   />
                 );
               })}
