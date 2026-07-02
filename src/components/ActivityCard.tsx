@@ -1,12 +1,19 @@
 import { useState, useRef, useEffect } from 'react';
-import { Clock, BookOpen, MoreHorizontal, Loader2, Check, X, Camera, Trash2, Heart, MessageCircle } from 'lucide-react';
+import { Clock, BookOpen, MoreHorizontal, Loader2, Check, X, Camera, Trash2, Heart, MessageCircle, ChevronDown, PlusCircle, Link } from 'lucide-react';
 import { supabase } from '../lib/supabase';
-import { timeAgo, formatTimeRead, STATUS_LABELS } from '../lib/types';
-import type { TimeLog, Profile } from '../lib/types';
+import { timeAgo, formatTimeRead, STATUS_LABELS, countWords } from '../lib/types';
+import type { TimeLog, Profile, Status } from '../lib/types';
 import ConfirmDialog from './ConfirmDialog';
 import CommentSection from './CommentSection';
 import AvatarIcon from './AvatarIcon';
 import BookSynopsisModal from './BookSynopsisModal';
+
+const STATUS_STYLES: Record<string, string> = {
+  want_to_read: 'bg-brand-yellow text-gray-900 border-brand-blue',
+  reading: 'bg-brand-yellow text-gray-900 border-brand-blue',
+  finished: 'bg-brand-yellow text-gray-900 border-brand-blue',
+  did_not_finish: 'bg-gray-200 text-gray-600 border-gray-400',
+};
 
 interface Props {
   log: TimeLog;
@@ -21,7 +28,9 @@ export default function ActivityCard({ log, allProfiles, currentUser, onRefresh 
   const isFinishedEvent = log.minutes_added === 0 && log.status_override === 'finished';
   const timeLabel = isFinishedEvent ? null : formatTimeRead(log.minutes_added);
   const isOwn = log.user_id === currentUser.id;
+  const isArticle = log.entry_type === 'article';
   const [menuOpen, setMenuOpen] = useState(false);
+  const [statusDropdownOpen, setStatusDropdownOpen] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [editing, setEditing] = useState(false);
@@ -30,24 +39,53 @@ export default function ActivityCard({ log, allProfiles, currentUser, onRefresh 
   const [editMediaUrl, setEditMediaUrl] = useState<string | null>(log.media_url ?? null);
   const [photoUploading, setPhotoUploading] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [markingFinished, setMarkingFinished] = useState(false);
   const [commentsOpen, setCommentsOpen] = useState(false);
   const [likeCount, setLikeCount] = useState(0);
   const [isLiked, setIsLiked] = useState(false);
   const [synopsisOpen, setSynopsisOpen] = useState(false);
+  const [currentStatus, setCurrentStatus] = useState<Status | undefined>(log.entry_status);
+  const [addingTime, setAddingTime] = useState(false);
+  const [addMinutes, setAddMinutes] = useState('');
+  const [addNote, setAddNote] = useState('');
+  const [addNoteMediaUrl, setAddNoteMediaUrl] = useState<string | null>(null);
+  const [addNoteMediaUploading, setAddNoteMediaUploading] = useState(false);
+  const [notePhotoPickerOpen, setNotePhotoPickerOpen] = useState(false);
+  const [noteUrlInput, setNoteUrlInput] = useState('');
+  const [savingTime, setSavingTime] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
+  const statusDropdownRef = useRef<HTMLDivElement>(null);
   const photoFileRef = useRef<HTMLInputElement>(null);
+  const noteFileRef = useRef<HTMLInputElement>(null);
+  const notePhotoPickerRef = useRef<HTMLDivElement>(null);
+
+  const canAddTime = isOwn && (currentStatus === 'reading' || currentStatus === 'finished');
 
   useEffect(() => {
     if (!menuOpen) return;
     function handleOutside(e: MouseEvent) {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
-        setMenuOpen(false);
-      }
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) setMenuOpen(false);
     }
     document.addEventListener('mousedown', handleOutside);
     return () => document.removeEventListener('mousedown', handleOutside);
   }, [menuOpen]);
+
+  useEffect(() => {
+    if (!statusDropdownOpen) return;
+    function handleOutside(e: MouseEvent) {
+      if (statusDropdownRef.current && !statusDropdownRef.current.contains(e.target as Node)) setStatusDropdownOpen(false);
+    }
+    document.addEventListener('mousedown', handleOutside);
+    return () => document.removeEventListener('mousedown', handleOutside);
+  }, [statusDropdownOpen]);
+
+  useEffect(() => {
+    if (!notePhotoPickerOpen) return;
+    function handleOutside(e: MouseEvent) {
+      if (notePhotoPickerRef.current && !notePhotoPickerRef.current.contains(e.target as Node)) setNotePhotoPickerOpen(false);
+    }
+    document.addEventListener('mousedown', handleOutside);
+    return () => document.removeEventListener('mousedown', handleOutside);
+  }, [notePhotoPickerOpen]);
 
   async function handleDelete() {
     setDeleting(true);
@@ -79,6 +117,21 @@ export default function ActivityCard({ log, allProfiles, currentUser, onRefresh 
     if (photoFileRef.current) photoFileRef.current.value = '';
   }
 
+  async function handleNotePhotoUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setAddNoteMediaUploading(true);
+    const ext = file.name.split('.').pop();
+    const path = `time-logs/${currentUser.id}/${Date.now()}.${ext}`;
+    const { error } = await supabase.storage.from('media').upload(path, file);
+    if (!error) {
+      const { data } = supabase.storage.from('media').getPublicUrl(path);
+      setAddNoteMediaUrl(data.publicUrl);
+    }
+    setAddNoteMediaUploading(false);
+    if (noteFileRef.current) noteFileRef.current.value = '';
+  }
+
   async function handleSave() {
     const mins = parseInt(editMinutes || '0', 10);
     if (!mins || mins <= 0) return;
@@ -92,18 +145,49 @@ export default function ActivityCard({ log, allProfiles, currentUser, onRefresh 
     onRefresh();
   }
 
-  async function handleMarkFinished() {
-    setMenuOpen(false);
-    setMarkingFinished(true);
-    await supabase
-      .from('reading_entries')
-      .update({ status: 'finished', finished_at: new Date().toISOString() })
-      .eq('id', log.entry_id);
-    await supabase
-      .from('time_logs')
-      .update({ status_override: 'finished' })
-      .eq('id', log.id);
-    setMarkingFinished(false);
+  async function updateStatus(status: Status) {
+    setStatusDropdownOpen(false);
+    const update: Record<string, unknown> = { status };
+    if (status === 'finished' || status === 'did_not_finish') update.finished_at = new Date().toISOString();
+    await supabase.from('reading_entries').update(update).eq('id', log.entry_id);
+    if (status === 'finished') {
+      const { data: existing } = await supabase
+        .from('time_logs')
+        .select('id')
+        .eq('entry_id', log.entry_id)
+        .eq('status_override', 'finished')
+        .eq('minutes_added', 0)
+        .maybeSingle();
+      if (!existing) {
+        await supabase.from('time_logs').insert({
+          entry_id: log.entry_id,
+          book_id: log.book_id,
+          minutes_added: 0,
+          status_override: 'finished',
+        });
+      }
+    }
+    setCurrentStatus(status);
+    onRefresh();
+  }
+
+  async function handleLogTime() {
+    const mins = parseInt(addMinutes || '0', 10);
+    if (!mins || mins <= 0 || mins > 600) return;
+    if (countWords(addNote) > 150) return;
+    setSavingTime(true);
+    await supabase.from('time_logs').insert({
+      entry_id: log.entry_id,
+      book_id: log.book_id,
+      minutes_added: mins,
+      note: addNote.trim() || null,
+      media_url: addNoteMediaUrl,
+    });
+    setAddingTime(false);
+    setAddMinutes('');
+    setAddNote('');
+    setAddNoteMediaUrl(null);
+    setSavingTime(false);
     onRefresh();
   }
 
@@ -195,11 +279,11 @@ export default function ActivityCard({ log, allProfiles, currentUser, onRefresh 
             <div className="relative" ref={menuRef}>
               <button
                 onClick={() => setMenuOpen((o) => !o)}
-                disabled={deleting || markingFinished}
+                disabled={deleting}
                 className="p-0.5 text-gray-400 hover:text-gray-900 transition-colors"
                 aria-label="Time log options"
               >
-                {(deleting || markingFinished)
+                {deleting
                   ? <Loader2 className="w-4 h-4 animate-spin" />
                   : <MoreHorizontal className="w-4 h-4" />}
               </button>
@@ -211,15 +295,6 @@ export default function ActivityCard({ log, allProfiles, currentUser, onRefresh 
                       className="w-full text-left px-4 py-3 text-[11px] font-semibold uppercase tracking-wide text-brand-blue border-b-2 border-brand-blue hover:bg-blue-50 transition-colors"
                     >
                       Edit Log
-                    </button>
-                  )}
-                  {log.status_override !== 'finished' && (
-                    <button
-                      onClick={handleMarkFinished}
-                      disabled={markingFinished}
-                      className="w-full text-left px-4 py-3 text-[11px] font-semibold uppercase tracking-wide text-gray-700 border-b-2 border-brand-blue hover:bg-gray-50 transition-colors disabled:opacity-50"
-                    >
-                      {markingFinished ? 'Saving…' : 'Mark as Finished'}
                     </button>
                   )}
                   <button
@@ -269,6 +344,58 @@ export default function ActivityCard({ log, allProfiles, currentUser, onRefresh 
           {!editing && log.note && (
             <p className="text-sm text-gray-700 mt-3 leading-relaxed">{log.note}</p>
           )}
+          {/* Badges row */}
+          <div className="flex items-center gap-1.5 mt-2 flex-wrap">
+            {isOwn && currentStatus ? (
+              <div className="relative" ref={statusDropdownRef}>
+                <button
+                  onClick={() => setStatusDropdownOpen((o) => !o)}
+                  className={`inline-flex items-center gap-1 px-2 py-0.5 text-[11px] font-semibold border uppercase tracking-wide transition-colors ${STATUS_STYLES[currentStatus]}`}
+                >
+                  {STATUS_LABELS[currentStatus]}
+                  <ChevronDown className="w-3 h-3 shrink-0" />
+                </button>
+                {statusDropdownOpen && (
+                  <div className="absolute left-0 top-full mt-0.5 z-50 bg-white border-2 border-brand-blue shadow-[4px_4px_0px_0px_rgba(15,0,227,1)] min-w-[160px]">
+                    {(
+                      [
+                        { key: 'want_to_read', label: 'Want to Read' },
+                        { key: 'reading', label: 'Reading' },
+                        { key: 'finished', label: 'Finished' },
+                        { key: 'did_not_finish', label: 'Did Not Finish' },
+                      ] as const
+                    )
+                      .filter((s) => s.key !== currentStatus)
+                      .map((s) => (
+                        <button
+                          key={s.key}
+                          onClick={() => updateStatus(s.key)}
+                          className="w-full text-left px-4 py-3 text-[11px] font-semibold uppercase tracking-wide text-brand-blue border-b border-gray-100 last:border-b-0 hover:bg-blue-50 transition-colors"
+                        >
+                          {s.label}
+                        </button>
+                      ))}
+                  </div>
+                )}
+              </div>
+            ) : currentStatus ? (
+              <span className={`inline-flex items-center px-2 py-0.5 text-[11px] font-semibold border uppercase tracking-wide ${STATUS_STYLES[currentStatus]}`}>
+                {STATUS_LABELS[currentStatus]}
+              </span>
+            ) : null}
+            <span className="inline-flex items-center px-2 py-0.5 text-[11px] font-semibold border border-brand-blue bg-white text-gray-900">
+              {isArticle ? 'Article' : 'Book'}
+            </span>
+            {canAddTime && !addingTime && (
+              <button
+                onClick={() => setAddingTime(true)}
+                className="inline-flex items-center gap-1 px-2 py-0.5 text-[11px] font-semibold border border-brand-red text-brand-red hover:bg-red-50 transition-colors"
+              >
+                <PlusCircle className="w-3 h-3" />
+                Add Time
+              </button>
+            )}
+          </div>
         </div>
         {!editing && !isFinishedEvent && (
           <div className="flex items-center gap-1 text-xs text-gray-400 shrink-0 border-2 border-brand-blue px-2 py-1">
@@ -277,6 +404,133 @@ export default function ActivityCard({ log, allProfiles, currentUser, onRefresh 
           </div>
         )}
       </div>
+
+      {/* Inline add-time form */}
+      {addingTime && (
+        <div className="px-4 pb-4 border-t border-gray-100 pt-3">
+          {addNoteMediaUrl && (
+            <div className="relative inline-block mb-2">
+              <img src={addNoteMediaUrl} alt="" className="h-16 rounded-lg object-cover border border-gray-200" />
+              <button
+                type="button"
+                onClick={() => setAddNoteMediaUrl(null)}
+                className="absolute -top-1 -right-1 bg-gray-900 text-white rounded-full p-0.5"
+              >
+                <X className="w-3 h-3" />
+              </button>
+            </div>
+          )}
+          <div className="flex items-center gap-2">
+            <div className="relative">
+              <input
+                type="number"
+                min="1"
+                max="600"
+                value={addMinutes}
+                onChange={(e) => setAddMinutes(String(Math.min(parseInt(e.target.value || '0', 10), 600)))}
+                placeholder="0"
+                className="w-20 px-2 py-1.5 pr-8 border-2 border-brand-blue text-sm focus:outline-none focus:border-brand-blue text-center"
+              />
+              <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-gray-400 pointer-events-none">min</span>
+            </div>
+            <div className="flex-1 flex flex-col relative">
+              <div className="flex items-center border-2 border-brand-blue bg-white">
+                <input
+                  type="text"
+                  value={addNote}
+                  onChange={(e) => setAddNote(e.target.value)}
+                  placeholder="Optional note…"
+                  className="flex-1 px-3 py-1.5 text-sm focus:outline-none bg-transparent"
+                  onKeyDown={(e) => { if (e.key === 'Enter') handleLogTime(); }}
+                />
+                <button
+                  type="button"
+                  onClick={() => setNotePhotoPickerOpen((o) => !o)}
+                  disabled={addNoteMediaUploading}
+                  className="px-2 py-1.5 text-gray-400 hover:text-brand-blue transition-colors shrink-0"
+                  title="Attach photo"
+                >
+                  {addNoteMediaUploading
+                    ? <Loader2 className="w-4 h-4 animate-spin" />
+                    : <Camera className={`w-4 h-4 ${addNoteMediaUrl ? 'text-brand-blue' : ''}`} />}
+                </button>
+              </div>
+              {notePhotoPickerOpen && (
+                <div
+                  ref={notePhotoPickerRef}
+                  className="absolute right-0 top-full mt-1 z-50 bg-white border-2 border-brand-blue shadow-[4px_4px_0px_0px_rgba(15,0,227,1)] w-64"
+                >
+                  <button
+                    type="button"
+                    onClick={() => { setNotePhotoPickerOpen(false); noteFileRef.current?.click(); }}
+                    className="w-full flex items-center gap-2 px-4 py-3 text-[11px] font-semibold uppercase tracking-wide text-brand-blue border-b border-gray-100 hover:bg-blue-50 transition-colors"
+                  >
+                    <Camera className="w-3.5 h-3.5" />
+                    Upload from file
+                  </button>
+                  <div className="px-3 py-2">
+                    <div className="flex items-center gap-1.5">
+                      <Link className="w-3.5 h-3.5 text-gray-400 shrink-0" />
+                      <input
+                        type="url"
+                        value={noteUrlInput}
+                        onChange={(e) => setNoteUrlInput(e.target.value)}
+                        placeholder="Paste image URL…"
+                        className="flex-1 text-xs border border-gray-200 px-2 py-1.5 focus:outline-none focus:border-brand-blue"
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' && noteUrlInput.trim()) {
+                            setAddNoteMediaUrl(noteUrlInput.trim());
+                            setNoteUrlInput('');
+                            setNotePhotoPickerOpen(false);
+                          }
+                        }}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (noteUrlInput.trim()) {
+                            setAddNoteMediaUrl(noteUrlInput.trim());
+                            setNoteUrlInput('');
+                            setNotePhotoPickerOpen(false);
+                          }
+                        }}
+                        className="px-2 py-1.5 bg-brand-blue text-white text-[10px] font-bold uppercase hover:bg-blue-800 transition-colors"
+                      >
+                        Add
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+              {countWords(addNote) >= 140 && (
+                <p className={`text-[11px] mt-0.5 text-right font-medium ${countWords(addNote) > 150 ? 'text-brand-red' : 'text-amber-500'}`}>
+                  {countWords(addNote)} / 150 words
+                </p>
+              )}
+            </div>
+            <button
+              onClick={handleLogTime}
+              disabled={savingTime || !addMinutes || parseInt(addMinutes) <= 0 || parseInt(addMinutes) > 600 || countWords(addNote) > 150}
+              className="px-3 py-1.5 bg-brand-red border-2 border-brand-blue text-white text-sm font-bold uppercase hover:bg-red-700 transition-colors disabled:opacity-50"
+            >
+              {savingTime ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Log'}
+            </button>
+            <button
+              onClick={() => { setAddingTime(false); setAddMinutes(''); setAddNote(''); setAddNoteMediaUrl(null); }}
+              className="p-1.5 text-gray-400 hover:text-gray-900 transition-colors"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+          <input
+            ref={noteFileRef}
+            type="file"
+            accept="image/*"
+            className="hidden"
+            onChange={handleNotePhotoUpload}
+          />
+        </div>
+      )}
 
       {/* Inline edit form */}
       {editing && (

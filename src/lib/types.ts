@@ -69,6 +69,8 @@ export interface TimeLog {
   // client-joined
   book?: Book;
   profile?: Profile;
+  entry_status?: Status;
+  entry_type?: EntryType;
 }
 
 export interface Notification {

@@ -67,6 +67,8 @@ export default function Feed({ currentUser, allProfiles, selectedUserId, refresh
       ...tl,
       book: tl.books ?? null,
       profile: profileMap.get(tl.user_id),
+      entry_status: tl.reading_entries?.status ?? undefined,
+      entry_type: tl.reading_entries?.entry_type ?? undefined,
     }));
   }
 
@@ -80,7 +82,7 @@ export default function Feed({ currentUser, allProfiles, selectedUserId, refresh
         .order('created_at', { ascending: false }),
       supabase
         .from('time_logs')
-        .select('*, books(*)')
+        .select('*, books(*), reading_entries(status, entry_type)')
         .order('created_at', { ascending: false }),
       supabase
         .from('hidden_entries')
@@ -121,7 +123,7 @@ export default function Feed({ currentUser, allProfiles, selectedUserId, refresh
         .order('created_at', { ascending: false }),
       supabase
         .from('time_logs')
-        .select('*, books(*)')
+        .select('*, books(*), reading_entries(status, entry_type)')
         .eq('user_id', userId)
         .order('created_at', { ascending: false }),
       supabase
