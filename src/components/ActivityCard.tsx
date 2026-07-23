@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { Clock, BookOpen, MoreHorizontal, Loader2, Check, X, Camera, Trash2, Heart, MessageCircle, ChevronDown, PlusCircle, Link } from 'lucide-react';
+import { Clock, BookOpen, MoreHorizontal, Loader2, Check, X, Camera, Trash2, MessageCircle, ChevronDown, PlusCircle, Link } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { timeAgo, formatTimeRead, STATUS_LABELS, countWords } from '../lib/types';
 import type { TimeLog, Profile, Status } from '../lib/types';
@@ -7,6 +7,7 @@ import ConfirmDialog from './ConfirmDialog';
 import CommentSection from './CommentSection';
 import AvatarIcon from './AvatarIcon';
 import BookSynopsisModal from './BookSynopsisModal';
+import LikeButton from './LikeButton';
 
 const STATUS_STYLES: Record<string, string> = {
   want_to_read: 'bg-brand-yellow text-gray-900 border-brand-blue',
@@ -43,6 +44,7 @@ export default function ActivityCard({ log, allProfiles, currentUser, onRefresh,
   const [commentsOpen, setCommentsOpen] = useState(false);
   const [likeCount, setLikeCount] = useState(0);
   const [isLiked, setIsLiked] = useState(false);
+  const [likerUserIds, setLikerUserIds] = useState<string[]>([]);
   const [synopsisOpen, setSynopsisOpen] = useState(false);
   const [currentStatus, setCurrentStatus] = useState<Status | undefined>(log.entry_status);
   const [addingTime, setAddingTime] = useState(false);
@@ -199,8 +201,10 @@ export default function ActivityCard({ log, allProfiles, currentUser, onRefresh,
       .eq('time_log_id', log.id)
       .then(({ data }) => {
         const rows = data ?? [];
-        setLikeCount(rows.length);
-        setIsLiked(rows.some((r) => r.user_id === currentUser.id));
+        const ids = rows.map((r) => r.user_id);
+        setLikerUserIds(ids);
+        setLikeCount(ids.length);
+        setIsLiked(ids.includes(currentUser.id));
       });
   }, [log.id]);
 
@@ -208,10 +212,12 @@ export default function ActivityCard({ log, allProfiles, currentUser, onRefresh,
     if (isLiked) {
       setIsLiked(false);
       setLikeCount((n) => Math.max(n - 1, 0));
+      setLikerUserIds((prev) => prev.filter((id) => id !== currentUser.id));
       await supabase.from('time_log_likes').delete().eq('time_log_id', log.id).eq('user_id', currentUser.id);
     } else {
       setIsLiked(true);
       setLikeCount((n) => n + 1);
+      setLikerUserIds((prev) => [...prev, currentUser.id]);
       await supabase.from('time_log_likes').insert({ time_log_id: log.id });
       if (log.user_id !== currentUser.id) {
         await supabase.from('notifications').insert({
@@ -633,15 +639,13 @@ export default function ActivityCard({ log, allProfiles, currentUser, onRefresh,
 
       {/* Footer action bar */}
       <div className="flex items-center justify-end gap-3 px-4 py-3 border-t-2 border-brand-blue bg-brand-pink">
-        <button
-          onClick={toggleLike}
-          className={`flex items-center gap-1.5 text-xs font-medium transition-colors ${
-            isLiked ? 'text-red-500' : 'text-gray-500 hover:text-red-400'
-          }`}
-        >
-          <Heart className={`w-3.5 h-3.5 ${isLiked ? 'fill-current' : ''}`} />
-          {likeCount > 0 && <span>{likeCount}</span>}
-        </button>
+        <LikeButton
+          isLiked={isLiked}
+          count={likeCount}
+          likerUserIds={likerUserIds}
+          allProfiles={allProfiles}
+          onToggle={toggleLike}
+        />
         <button
           onClick={() => setCommentsOpen((o) => !o)}
           className="flex items-center gap-1.5 text-xs font-medium text-gray-500 hover:text-gray-900 transition-colors"

@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { MessageCircle, BookOpen, Newspaper, MoreHorizontal, PlusCircle, X, Loader2, Camera, Heart, EyeOff, Eye, ChevronDown, Link } from 'lucide-react';
+import { MessageCircle, BookOpen, Newspaper, MoreHorizontal, PlusCircle, X, Loader2, Camera, EyeOff, Eye, ChevronDown, Link } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import {
   timeAgo,
@@ -13,6 +13,7 @@ import CommentSection from './CommentSection';
 import ConfirmDialog from './ConfirmDialog';
 import AvatarIcon from './AvatarIcon';
 import BookSynopsisModal from './BookSynopsisModal';
+import LikeButton from './LikeButton';
 
 interface Props {
   entry: ReadingEntry;
@@ -106,6 +107,7 @@ export default function EntryCard({
   const notePhotoPickerRef = useRef<HTMLDivElement>(null);
   const [likeCount, setLikeCount] = useState(0);
   const [isLiked, setIsLiked] = useState(false);
+  const [likerUserIds, setLikerUserIds] = useState<string[]>([]);
   const [hideMenuOpen, setHideMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
   const hideMenuRef = useRef<HTMLDivElement>(null);
@@ -247,8 +249,10 @@ export default function EntryCard({
       .eq('entry_id', entry.id)
       .then(({ data }) => {
         const rows = data ?? [];
-        setLikeCount(rows.length);
-        setIsLiked(rows.some((r) => r.user_id === currentUser.id));
+        const ids = rows.map((r) => r.user_id);
+        setLikerUserIds(ids);
+        setLikeCount(ids.length);
+        setIsLiked(ids.includes(currentUser.id));
       });
   }, [entry.id]);
 
@@ -256,10 +260,12 @@ export default function EntryCard({
     if (isLiked) {
       setIsLiked(false);
       setLikeCount((n) => Math.max(n - 1, 0));
+      setLikerUserIds((prev) => prev.filter((id) => id !== currentUser.id));
       await supabase.from('entry_likes').delete().eq('entry_id', entry.id).eq('user_id', currentUser.id);
     } else {
       setIsLiked(true);
       setLikeCount((n) => n + 1);
+      setLikerUserIds((prev) => [...prev, currentUser.id]);
       await supabase.from('entry_likes').insert({ entry_id: entry.id });
       if (entry.user_id !== currentUser.id) {
         await supabase.from('notifications').insert({
@@ -716,15 +722,13 @@ export default function EntryCard({
           </div>
         ) : <span />}
         <div className="flex items-center gap-3">
-          <button
-            onClick={toggleEntryLike}
-            className={`flex items-center gap-1.5 text-xs font-medium transition-colors ${
-              isLiked ? 'text-red-500' : 'text-gray-500 hover:text-red-400'
-            }`}
-          >
-            <Heart className={`w-3.5 h-3.5 ${isLiked ? 'fill-current' : ''}`} />
-            {likeCount > 0 && <span>{likeCount}</span>}
-          </button>
+          <LikeButton
+            isLiked={isLiked}
+            count={likeCount}
+            likerUserIds={likerUserIds}
+            allProfiles={allProfiles}
+            onToggle={toggleEntryLike}
+          />
           <button
             onClick={() => setCommentsOpen(!commentsOpen)}
             className="flex items-center gap-1.5 text-xs font-medium text-gray-500 hover:text-gray-900 transition-colors"

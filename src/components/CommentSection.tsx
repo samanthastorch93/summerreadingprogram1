@@ -1,10 +1,11 @@
 import { useState, useEffect, useRef } from 'react';
-import { Send, Camera, X, Loader2, CornerDownRight, Trash2, Heart, Link } from 'lucide-react';
+import { Send, Camera, X, Loader2, CornerDownRight, Trash2, Link } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { timeAgo, countWords } from '../lib/types';
 import type { Comment, Profile } from '../lib/types';
 import ConfirmDialog from './ConfirmDialog';
 import AvatarIcon from './AvatarIcon';
+import LikeButton from './LikeButton';
 
 function SpoilerSpan({ text }: { text: string }) {
   const [revealed, setRevealed] = useState(false);
@@ -67,7 +68,7 @@ export default function CommentSection({ entryId, entryOwnerId, currentUser, all
   const [replyingTo, setReplyingTo] = useState<Comment | null>(null);
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
   const [likedIds, setLikedIds] = useState<Set<string>>(new Set());
-  const [likeCounts, setLikeCounts] = useState<Record<string, number>>({});
+  const [likerUserIds, setLikerUserIds] = useState<Record<string, string[]>>({});
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const photoPickerRef = useRef<HTMLDivElement>(null);
@@ -112,13 +113,14 @@ export default function CommentSection({ entryId, entryOwnerId, currentUser, all
       .in('comment_id', commentIds);
 
     const newLikedIds = new Set<string>();
-    const counts: Record<string, number> = {};
+    const newLikerUserIds: Record<string, string[]> = {};
     for (const like of likes ?? []) {
-      counts[like.comment_id] = (counts[like.comment_id] ?? 0) + 1;
+      if (!newLikerUserIds[like.comment_id]) newLikerUserIds[like.comment_id] = [];
+      newLikerUserIds[like.comment_id].push(like.user_id);
       if (like.user_id === currentUser.id) newLikedIds.add(like.comment_id);
     }
     setLikedIds(newLikedIds);
-    setLikeCounts(counts);
+    setLikerUserIds(newLikerUserIds);
 
     const enriched: Comment[] = data.map((c) => ({
       ...c,
@@ -190,11 +192,11 @@ export default function CommentSection({ entryId, entryOwnerId, currentUser, all
     const liked = likedIds.has(commentId);
     if (liked) {
       setLikedIds((prev) => { const s = new Set(prev); s.delete(commentId); return s; });
-      setLikeCounts((prev) => ({ ...prev, [commentId]: Math.max((prev[commentId] ?? 1) - 1, 0) }));
+      setLikerUserIds((prev) => ({ ...prev, [commentId]: (prev[commentId] ?? []).filter((id) => id !== currentUser.id) }));
       await supabase.from('comment_likes').delete().eq('comment_id', commentId).eq('user_id', currentUser.id);
     } else {
       setLikedIds((prev) => new Set(prev).add(commentId));
-      setLikeCounts((prev) => ({ ...prev, [commentId]: (prev[commentId] ?? 0) + 1 }));
+      setLikerUserIds((prev) => ({ ...prev, [commentId]: [...(prev[commentId] ?? []), currentUser.id] }));
       await supabase.from('comment_likes').insert({ comment_id: commentId, user_id: currentUser.id });
     }
   }
@@ -328,15 +330,14 @@ export default function CommentSection({ entryId, entryOwnerId, currentUser, all
               <CornerDownRight className="w-3 h-3" />
               Reply
             </button>
-            <button
-              onClick={() => toggleLike(comment.id)}
-              className={`mt-1 flex items-center gap-1 text-[11px] transition-colors ${
-                likedIds.has(comment.id) ? 'text-red-500' : 'text-gray-400 hover:text-red-400'
-              }`}
-            >
-              <Heart className={`w-3 h-3 ${likedIds.has(comment.id) ? 'fill-current' : ''}`} />
-              {(likeCounts[comment.id] ?? 0) > 0 && <span>{likeCounts[comment.id]}</span>}
-            </button>
+            <LikeButton
+              isLiked={likedIds.has(comment.id)}
+              count={likerUserIds[comment.id]?.length ?? 0}
+              likerUserIds={likerUserIds[comment.id] ?? []}
+              allProfiles={allProfiles}
+              onToggle={() => toggleLike(comment.id)}
+              size="sm"
+            />
           </div>
         </div>
       </div>
