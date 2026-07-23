@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { X, Loader2, BookOpen } from 'lucide-react';
-import { supabase } from '../lib/supabase';
+import { fetchBookDescription } from '../lib/bookSearch';
 
 interface Props {
   bookId: string | null;
@@ -13,82 +13,6 @@ interface Props {
   onDescriptionFetched?: (description: string) => void;
 }
 
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string;
-const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY as string;
-
-function cleanIsbn(isbn: string | null): string | null {
-  if (!isbn) return null;
-  const cleaned = isbn.replace(/[^0-9Xx]/g, '').toUpperCase();
-  return cleaned.length >= 10 ? cleaned : null;
-}
-
-async function fetchAndSaveDescription(bookId: string | null, title: string, author: string, rawIsbn: string | null): Promise<string | null> {
-  const isbn = cleanIsbn(rawIsbn);
-  // Check DB first — covers stale client data after the auto-populate trigger fires
-  if (bookId) {
-    const { data: bookRow } = await supabase.from('books').select('description').eq('id', bookId).maybeSingle();
-    if (bookRow?.description) return bookRow.description;
-  }
-
-  // Description not in DB — call edge function to fetch and save it
-  if (bookId) {
-    try {
-      const res = await fetch(`${SUPABASE_URL}/functions/v1/populate-book-description`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
-        },
-        body: JSON.stringify({ book_id: bookId }),
-      });
-      if (res.ok) {
-        const data = await res.json();
-        if (data.description) return data.description;
-      }
-    } catch { /* fall through */ }
-  }
-
-  // Fallback: Open Library via ISBN→Work API then title/author search (covers articles / books without a DB ID)
-  try {
-    if (isbn) {
-      try {
-        const editionRes = await fetch(`https://openlibrary.org/isbn/${isbn}.json`);
-        if (editionRes.ok) {
-          const edition = await editionRes.json();
-          const workKey: string | null = edition?.works?.[0]?.key ?? null;
-          if (workKey) {
-            const workRes = await fetch(`https://openlibrary.org${workKey}.json`);
-            if (workRes.ok) {
-              const workData = await workRes.json();
-              const raw = workData?.description ?? workData?.notes ?? null;
-              const text = raw ? (typeof raw === 'string' ? raw : raw.value ?? null) : null;
-              if (text && text.trim().length >= 50) return text;
-            }
-          }
-        }
-      } catch { /* fall through */ }
-    }
-    const search = await fetch(
-      `https://openlibrary.org/search.json?title=${encodeURIComponent(title)}&author=${encodeURIComponent(author)}&limit=3`
-    );
-    if (search.ok) {
-      const results = await search.json();
-      for (const doc of results.docs ?? []) {
-        if (!doc.key) continue;
-        try {
-          const workRes = await fetch(`https://openlibrary.org${doc.key}.json`);
-          if (!workRes.ok) continue;
-          const workData = await workRes.json();
-          const raw = workData?.description ?? workData?.notes ?? null;
-          const text = raw ? (typeof raw === 'string' ? raw : raw.value ?? null) : null;
-          if (text && text.trim().length >= 50) return text;
-        } catch { continue; }
-      }
-    }
-  } catch { /* fall through */ }
-  return null;
-}
-
 export default function BookSynopsisModal({ bookId, title, author, coverUrl, isbn, description: initialDescription, onClose, onDescriptionFetched }: Props) {
   const [description, setDescription] = useState<string | null>(initialDescription);
   const [loading, setLoading] = useState(!initialDescription);
@@ -97,7 +21,7 @@ export default function BookSynopsisModal({ bookId, title, author, coverUrl, isb
     if (initialDescription) return;
     let cancelled = false;
     setLoading(true);
-    fetchAndSaveDescription(bookId, title, author, isbn).then((d) => {
+    fetchBookDescription(bookId, title, author, isbn).then((d) => {
       if (!cancelled) {
         setDescription(d);
         setLoading(false);

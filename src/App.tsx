@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { Sun } from 'lucide-react';
 import { useAuth } from './hooks/useAuth';
 import { supabase } from './lib/supabase';
-import type { Profile, ReadingEntry } from './lib/types';
+import type { Profile, ReadingEntry, BookSearchResult } from './lib/types';
 import AuthModal from './components/AuthModal';
 import Header from './components/Header';
 import StatsSection from './components/StatsSection';
@@ -12,6 +12,7 @@ import LogEntryModal from './components/LogEntryModal';
 import NotificationPanel from './components/NotificationPanel';
 import ProfileModal from './components/ProfileModal';
 import PrivacyPolicy from './components/PrivacyPolicy';
+import BookDetailModal from './components/BookDetailModal';
 
 export default function App() {
   const { user, profile, loading, setProfile } = useAuth();
@@ -32,6 +33,7 @@ export default function App() {
   const [refreshKey, setRefreshKey] = useState(0);
   const [statusFilter, setStatusFilter] = useState<import('./lib/types').Status | null>(null);
   const [focusedEntryId, setFocusedEntryId] = useState<string | null>(null);
+  const [selectedBook, setSelectedBook] = useState<BookSearchResult | null>(null);
 
   const refresh = useCallback(() => setRefreshKey((k) => k + 1), []);
 
@@ -110,7 +112,7 @@ export default function App() {
         onOpenNotifications={() => { setShowNotifications(true); setUnreadCount(0); }}
         onOpenProfile={() => setShowProfileModal(true)}
         onSelectUser={(userId) => { setSelectedUserId(userId); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
-        onSelectEntry={handleNavigateToEntry}
+        onSelectBook={(book) => setSelectedBook(book)}
         onHome={() => { setSelectedUserId(null); setStatusFilter(null); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
       />
 
@@ -169,6 +171,15 @@ export default function App() {
           profile={profile}
           onClose={() => setShowProfileModal(false)}
           onSaved={(updated) => { setProfile(updated); loadProfiles(); }}
+        />
+      )}
+
+      {selectedBook && (
+        <BookDetailModal
+          book={selectedBook}
+          allProfiles={allProfiles}
+          onClose={() => setSelectedBook(null)}
+          onSelectUser={(userId) => { setSelectedUserId(userId); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
         />
       )}
 

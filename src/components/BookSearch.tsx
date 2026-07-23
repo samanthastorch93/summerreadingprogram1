@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { Search, Loader2 } from 'lucide-react';
 import type { BookSearchResult } from '../lib/types';
+import { searchBooks } from '../lib/bookSearch';
 
 interface Props {
   title: string;
@@ -8,113 +9,6 @@ interface Props {
   onTitleChange: (title: string) => void;
   onAuthorChange: (author: string) => void;
   onEnrich: (data: Omit<BookSearchResult, 'bookshopUrl'>) => void;
-}
-
-const GOOGLE_BOOKS_API_KEY = import.meta.env.VITE_GOOGLE_BOOKS_API_KEY ?? '';
-
-async function searchGoogleBooks(titleQ: string, authorQ: string): Promise<BookSearchResult[]> {
-  const keyParam = GOOGLE_BOOKS_API_KEY ? `&key=${GOOGLE_BOOKS_API_KEY}` : '';
-
-  async function fetchQuery(q: string) {
-    const res = await fetch(
-      `https://www.googleapis.com/books/v1/volumes?q=${encodeURIComponent(q)}&maxResults=10&printType=books&orderBy=relevance${keyParam}`
-    );
-    if (!res.ok) throw new Error(`Google Books ${res.status}`);
-    const data = await res.json();
-    if (data.error) throw new Error(data.error.message);
-    return data.items ?? [];
-  }
-
-  function mapItem(item: any): BookSearchResult | null {
-    const info = item.volumeInfo;
-    if (!info?.title) return null;
-    const author = info.authors?.[0] ?? 'Unknown';
-    const identifiers: any[] = info.industryIdentifiers ?? [];
-    const isbn =
-      identifiers.find((x: any) => x.type === 'ISBN_13')?.identifier ??
-      identifiers.find((x: any) => x.type === 'ISBN_10')?.identifier ??
-      null;
-    const rawThumb = info.imageLinks?.thumbnail ?? info.imageLinks?.smallThumbnail ?? null;
-    const coverUrl = rawThumb
-      ? rawThumb.replace('http://', 'https://').replace('&edge=curl', '')
-      : null;
-    return {
-      title: info.title,
-      author,
-      isbn,
-      coverUrl,
-      description: info.description ?? null,
-      bookshopUrl: `https://bookshop.org/beta-search?keywords=${encodeURIComponent(info.title + ' ' + author)}`,
-    };
-  }
-
-  // Use intitle for title precision; author as plain text for fuzzy matching
-  const parts: string[] = [];
-  if (titleQ) parts.push(`intitle:"${titleQ}"`);
-  if (authorQ) parts.push(authorQ);
-  const qualifiedQ = parts.join(' ');
-
-  let items = await fetchQuery(qualifiedQ);
-
-  // Fall back to unquoted intitle if phrase match yields nothing
-  if (items.length === 0 && titleQ) {
-    const unquotedParts: string[] = [`intitle:${titleQ}`];
-    if (authorQ) unquotedParts.push(authorQ);
-    items = await fetchQuery(unquotedParts.join(' '));
-  }
-
-  // Final fallback to plain text
-  if (items.length === 0) {
-    const plainQ = [titleQ, authorQ].filter(Boolean).join(' ');
-    items = await fetchQuery(plainQ);
-  }
-
-  return items.map(mapItem).filter((b): b is BookSearchResult => b !== null);
-}
-
-async function searchOpenLibrary(titleQ: string, authorQ: string): Promise<BookSearchResult[]> {
-  const params = new URLSearchParams({ fields: 'title,author_name,isbn,cover_i,key', limit: '10' });
-  if (titleQ) params.set('title', titleQ);
-  if (authorQ) params.set('author', authorQ);
-  if (!titleQ && !authorQ) return [];
-  const res = await fetch(`https://openlibrary.org/search.json?${params}`);
-  if (!res.ok) throw new Error('Open Library error');
-  const data = await res.json();
-  return (data.docs ?? [])
-    .filter((d: any) => d.title)
-    .map((d: any) => {
-      const author = d.author_name?.[0] ?? 'Unknown';
-      const isbn = d.isbn?.[0] ?? null;
-      const coverId = d.cover_i ?? null;
-      const coverUrl = coverId ? `https://covers.openlibrary.org/b/id/${coverId}-M.jpg` : null;
-      return {
-        title: d.title,
-        author,
-        isbn,
-        coverUrl,
-        description: null,
-        bookshopUrl: `https://bookshop.org/beta-search?keywords=${encodeURIComponent(d.title + ' ' + author)}`,
-      };
-    });
-}
-
-function rankResults(results: BookSearchResult[], titleQ: string): BookSearchResult[] {
-  const q = titleQ.toLowerCase().trim();
-  return [...results].sort((a, b) => {
-    const at = a.title.toLowerCase().trim();
-    const bt = b.title.toLowerCase().trim();
-    const aExact = at === q ? 0 : at.startsWith(q) ? 1 : at.includes(q) ? 2 : 3;
-    const bExact = bt === q ? 0 : bt.startsWith(q) ? 1 : bt.includes(q) ? 2 : 3;
-    return aExact - bExact;
-  });
-}
-
-async function searchBooks(titleQ: string, authorQ: string): Promise<BookSearchResult[]> {
-  try {
-    return rankResults(await searchGoogleBooks(titleQ, authorQ), titleQ);
-  } catch {
-    return rankResults(await searchOpenLibrary(titleQ, authorQ), titleQ);
-  }
 }
 
 export default function BookSearch({ title, author, onTitleChange, onAuthorChange, onEnrich }: Props) {

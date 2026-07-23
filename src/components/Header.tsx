@@ -1,5 +1,5 @@
 import { Plus, Bell, Sun, Smile } from 'lucide-react';
-import type { Profile } from '../lib/types';
+import type { Profile, BookSearchResult } from '../lib/types';
 import HeaderSearch from './HeaderSearch';
 import AvatarIcon from './AvatarIcon';
 
@@ -11,7 +11,7 @@ interface Props {
   onOpenNotifications: () => void;
   onOpenProfile: () => void;
   onSelectUser: (userId: string) => void;
-  onSelectEntry: (entryId: string) => void;
+  onSelectBook: (book: BookSearchResult) => void;
   onHome: () => void;
 }
 
@@ -23,7 +23,7 @@ export default function Header({
   onOpenNotifications,
   onOpenProfile,
   onSelectUser,
-  onSelectEntry,
+  onSelectBook,
   onHome,
 }: Props) {
   return (
@@ -45,7 +45,7 @@ export default function Header({
         <HeaderSearch
           allProfiles={allProfiles}
           onSelectUser={onSelectUser}
-          onSelectEntry={onSelectEntry}
+          onSelectBook={onSelectBook}
         />
 
         {/* Actions */}
