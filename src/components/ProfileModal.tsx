@@ -79,6 +79,7 @@ export default function ProfileModal({ profile, onClose, onSaved }: Props) {
   async function handleSave() {
     const cleanUsername = username.toLowerCase().replace(/[^a-z0-9_]/g, '');
     if (cleanUsername.length < 3) { setError('Username must be at least 3 characters (letters, numbers, underscores).'); return; }
+    if (cleanUsername.length > 20) { setError('Username must be 20 characters or fewer.'); return; }
     if (showChangePw) {
       if (!currentPassword) { setError('Enter your current password.'); return; }
       if (!password) { setError('Enter a new password.'); return; }
@@ -238,7 +239,8 @@ export default function ProfileModal({ profile, onClose, onSaved }: Props) {
                 <input
                   type="text"
                   value={username}
-                  onChange={(e) => setUsername(e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, ''))}
+                  onChange={(e) => setUsername(e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, '').slice(0, 20))}
+                  maxLength={20}
                   className={inputClass}
                   placeholder="e.g. your_username"
                 />

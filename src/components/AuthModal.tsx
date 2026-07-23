@@ -51,6 +51,11 @@ export default function AuthModal({ onProfileCreated }: Props) {
         setLoading(false);
         return;
       }
+      if (cleanUsername.length > 20) {
+        setError('Username must be 20 characters or fewer.');
+        setLoading(false);
+        return;
+      }
 
       const { data: existing } = await supabase
         .from('profiles').select('id').eq('username', cleanUsername).maybeSingle();
@@ -141,7 +146,8 @@ export default function AuthModal({ onProfileCreated }: Props) {
                   <div className="relative">
                     <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm font-medium">@</span>
                     <input type="text" value={username}
-                      onChange={(e) => setUsername(e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, ''))}
+                      onChange={(e) => setUsername(e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, '').slice(0, 20))}
+                      maxLength={20}
                       placeholder="yourhandle" className={`${inputClass} pl-7`} required />
                   </div>
                 </div>
