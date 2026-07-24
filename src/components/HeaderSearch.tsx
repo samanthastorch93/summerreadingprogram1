@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { Search, X, User, BookOpen, Loader2 } from 'lucide-react';
-import { searchBooks } from '../lib/bookSearch';
+import { searchBooksHybrid } from '../lib/bookSearch';
 import type { Profile, BookSearchResult } from '../lib/types';
 import AvatarIcon from './AvatarIcon';
 
@@ -39,7 +39,7 @@ export default function HeaderSearch({ allProfiles, onSelectUser, onSelectBook }
 
     let books: BookSearchResult[] = [];
     try {
-      books = await searchBooks(q, '');
+      books = await searchBooksHybrid(q, '');
       if (books.length > 5) books = books.slice(0, 5);
     } catch { /* silent fail */ }
 

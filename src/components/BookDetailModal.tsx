@@ -55,7 +55,7 @@ export default function BookDetailModal({ book, allProfiles, onClose, onSelectUs
       const { data: books } = await supabase
         .from('books')
         .select('id, title, author')
-        .ilike('title', book.title)
+        .ilike('title', `%${book.title}%`)
         .limit(10);
 
       const matchingBooks = (books ?? []).filter(

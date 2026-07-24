@@ -97,12 +97,57 @@ function rankResults(results: BookSearchResult[], titleQ: string): BookSearchRes
   });
 }
 
+export async function searchBooksInDb(titleQ: string, authorQ: string): Promise<BookSearchResult[]> {
+  let query = supabase.from('books').select('id, title, author, isbn, cover_url, open_library_cover_id, description, bookshop_url, source_url').limit(10);
+  if (titleQ) {
+    query = query.ilike('title', `%${titleQ}%`);
+  }
+  if (authorQ) {
+    query = query.ilike('author', `%${authorQ}%`);
+  }
+  const { data } = await query;
+  if (!data) return [];
+  return data.map((b) => {
+    const cover = b.cover_url
+      ?? (b.open_library_cover_id ? `https://covers.openlibrary.org/b/id/${b.open_library_cover_id}-M.jpg` : null);
+    return {
+      title: b.title,
+      author: b.author,
+      isbn: b.isbn,
+      coverUrl: cover,
+      description: b.description,
+      bookshopUrl: b.bookshop_url ?? `https://bookshop.org/beta-search?keywords=${encodeURIComponent(b.title + ' ' + b.author)}`,
+    } as BookSearchResult;
+  });
+}
+
 export async function searchBooks(titleQ: string, authorQ: string): Promise<BookSearchResult[]> {
   try {
     return rankResults(await searchGoogleBooks(titleQ, authorQ), titleQ);
   } catch {
     return rankResults(await searchOpenLibrary(titleQ, authorQ), titleQ);
   }
+}
+
+export async function searchBooksHybrid(titleQ: string, authorQ: string): Promise<BookSearchResult[]> {
+  const dbResults = await searchBooksInDb(titleQ, authorQ);
+
+  let externalResults: BookSearchResult[] = [];
+  try {
+    externalResults = await searchBooks(titleQ, authorQ);
+  } catch { /* external APIs may be unreachable */ }
+
+  const seen = new Set(dbResults.map((b) => `${b.title.toLowerCase()}|${b.author.toLowerCase()}`));
+  const merged = [...dbResults];
+  for (const book of externalResults) {
+    const key = `${book.title.toLowerCase()}|${book.author.toLowerCase()}`;
+    if (!seen.has(key)) {
+      seen.add(key);
+      merged.push(book);
+    }
+  }
+
+  return rankResults(merged, titleQ).slice(0, 10);
 }
 
 export function cleanIsbn(isbn: string | null): string | null {
