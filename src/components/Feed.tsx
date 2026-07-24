@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { Loader2, Frown } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { formatTimeRead } from '../lib/types';
-import type { ReadingEntry, TimeLog, Profile, Status } from '../lib/types';
+import type { ReadingEntry, TimeLog, Profile, Status, BookSearchResult } from '../lib/types';
 import EntryCard from './EntryCard';
 import ActivityCard from './ActivityCard';
 
@@ -23,6 +23,7 @@ interface Props {
   statusFilter: Status | null;
   onStatusFilter: (status: Status | null) => void;
   onSelectUser: (userId: string) => void;
+  onLogBook?: (book: BookSearchResult) => void;
 }
 
 const TABS: { key: FilterTab; label: string }[] = [
@@ -32,7 +33,7 @@ const TABS: { key: FilterTab; label: string }[] = [
   { key: 'finished', label: 'Finished' },
 ];
 
-export default function Feed({ currentUser, allProfiles, selectedUserId, refreshKey, focusedEntryId, onRefresh, onEdit, statusFilter, onStatusFilter, onSelectUser }: Props) {
+export default function Feed({ currentUser, allProfiles, selectedUserId, refreshKey, focusedEntryId, onRefresh, onEdit, statusFilter, onStatusFilter, onSelectUser, onLogBook }: Props) {
   const [items, setItems] = useState<FeedItem[]>([]);
   const [commentedEntryIds, setCommentedEntryIds] = useState<Set<string>>(new Set());
   const [hiddenEntryIds, setHiddenEntryIds] = useState<Set<string>>(new Set());
@@ -251,6 +252,7 @@ export default function Feed({ currentUser, allProfiles, selectedUserId, refresh
                     onRefresh={onRefresh}
                     onEdit={onEdit}
                     onSelectUser={onSelectUser}
+                    onLogBook={onLogBook}
                   />
                 );
               })}

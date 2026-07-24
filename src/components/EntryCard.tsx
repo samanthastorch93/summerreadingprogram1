@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { MessageCircle, BookOpen, Newspaper, MoreHorizontal, PlusCircle, X, Loader2, Camera, EyeOff, Eye, ChevronDown, Link } from 'lucide-react';
+import { MessageCircle, BookOpen, Newspaper, MoreHorizontal, PlusCircle, X, Loader2, Camera, EyeOff, Eye, ChevronDown, Link, Plus } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import {
   timeAgo,
@@ -8,7 +8,7 @@ import {
   entryStatusPhrase,
   countWords,
 } from '../lib/types';
-import type { ReadingEntry, Profile } from '../lib/types';
+import type { ReadingEntry, Profile, BookSearchResult } from '../lib/types';
 import CommentSection from './CommentSection';
 import ConfirmDialog from './ConfirmDialog';
 import AvatarIcon from './AvatarIcon';
@@ -26,6 +26,7 @@ interface Props {
   onRefresh: () => void;
   onEdit?: (entry: ReadingEntry) => void;
   onSelectUser: (userId: string) => void;
+  onLogBook?: (book: BookSearchResult) => void;
 }
 
 const STATUS_STYLES: Record<string, string> = {
@@ -82,6 +83,7 @@ export default function EntryCard({
   onRefresh,
   onEdit,
   onSelectUser,
+  onLogBook,
 }: Props) {
   const [commentsOpen, setCommentsOpen] = useState(autoExpandComments);
   const [synopsisOpen, setSynopsisOpen] = useState(false);
@@ -494,6 +496,22 @@ export default function EntryCard({
 
             {/* Badges row */}
             <div className="flex items-center gap-1.5 mt-2 flex-wrap">
+              {!isOwn && !isArticle && onLogBook && (
+                <button
+                  onClick={() => onLogBook({
+                    title: book.title,
+                    author: book.author,
+                    isbn: book.isbn,
+                    coverUrl: book.cover_url,
+                    bookshopUrl: book.bookshop_url ?? `https://bookshop.org/beta-search?keywords=${encodeURIComponent(book.title + ' ' + book.author)}`,
+                    description: book.description,
+                  })}
+                  className="inline-flex items-center gap-1 px-2 py-0.5 text-[11px] font-semibold border border-brand-red text-brand-red bg-white hover:bg-red-50 transition-colors"
+                >
+                  <Plus className="w-3 h-3" strokeWidth={3} />
+                  Log
+                </button>
+              )}
               {isOwn ? (
                 <div className="relative" ref={statusDropdownRef}>
                   <button

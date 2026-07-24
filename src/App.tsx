@@ -147,6 +147,7 @@ export default function App() {
         statusFilter={statusFilter}
         onStatusFilter={setStatusFilter}
         onSelectUser={(userId) => { setSelectedUserId(userId); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
+        onLogBook={(book) => { setPrefillBook(book); setShowLogModal(true); }}
       />
 
       {(showLogModal || editEntry) && (
