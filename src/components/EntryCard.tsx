@@ -496,22 +496,6 @@ export default function EntryCard({
 
             {/* Badges row */}
             <div className="flex items-center gap-1.5 mt-2 flex-wrap">
-              {!isOwn && !isArticle && onLogBook && (
-                <button
-                  onClick={() => onLogBook({
-                    title: book.title,
-                    author: book.author,
-                    isbn: book.isbn,
-                    coverUrl: book.cover_url,
-                    bookshopUrl: book.bookshop_url ?? `https://bookshop.org/beta-search?keywords=${encodeURIComponent(book.title + ' ' + book.author)}`,
-                    description: book.description,
-                  })}
-                  className="inline-flex items-center gap-1 px-2 py-0.5 text-[11px] font-semibold border border-brand-red text-brand-red bg-white hover:bg-red-50 transition-colors"
-                >
-                  <Plus className="w-3 h-3" strokeWidth={3} />
-                  Log
-                </button>
-              )}
               {isOwn ? (
                 <div className="relative" ref={statusDropdownRef}>
                   <button
@@ -552,6 +536,22 @@ export default function EntryCard({
               <span className="inline-flex items-center px-2 py-0.5 text-[11px] font-semibold border border-brand-blue bg-white text-gray-900">
                 {isArticle ? 'Article' : 'Book'}
               </span>
+              {!isOwn && !isArticle && onLogBook && (
+                <button
+                  onClick={() => onLogBook({
+                    title: book.title,
+                    author: book.author,
+                    isbn: book.isbn,
+                    coverUrl: book.cover_url,
+                    bookshopUrl: book.bookshop_url ?? `https://bookshop.org/beta-search?keywords=${encodeURIComponent(book.title + ' ' + book.author)}`,
+                    description: book.description,
+                  })}
+                  className="inline-flex items-center gap-1 px-2 py-0.5 text-[11px] font-semibold border border-brand-red text-brand-red bg-white hover:bg-red-50 transition-colors"
+                >
+                  <Plus className="w-3 h-3" strokeWidth={3} />
+                  Log
+                </button>
+              )}
               {entry.time_read_minutes > 0 && (
                 <span className="text-[11px] text-gray-400">
                   {formatTimeRead(entry.time_read_minutes)} read
