@@ -39,7 +39,7 @@ export default function HeaderSearch({ allProfiles, onSelectUser, onSelectBook }
 
     let books: BookSearchResult[] = [];
     try {
-      books = await searchBooksHybrid(q, '');
+      books = await searchBooksHybrid(q, q);
       if (books.length > 5) books = books.slice(0, 5);
     } catch { /* silent fail */ }
 
