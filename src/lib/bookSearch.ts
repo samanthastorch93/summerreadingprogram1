@@ -50,22 +50,29 @@ async function searchGoogleBooks(titleQ: string, authorQ: string): Promise<BookS
     };
   }
 
-  const parts: string[] = [];
-  if (titleQ) parts.push(`intitle:"${titleQ}"`);
-  if (authorQ) parts.push(`inauthor:"${authorQ}"`);
-  const qualifiedQ = parts.join(' ');
+  // When titleQ === authorQ the caller is doing a raw combined search (e.g. header
+  // bar). Skip field qualifiers so Google handles the whole phrase naturally.
+  const isRawQuery = titleQ && authorQ && titleQ === authorQ;
 
-  let items = await fetchQuery(qualifiedQ);
+  let items: any[] = [];
 
-  if (items.length === 0 && titleQ) {
-    const unquotedParts: string[] = [`intitle:${titleQ}`];
-    if (authorQ) unquotedParts.push(authorQ);
-    items = await fetchQuery(unquotedParts.join(' '));
-  }
+  if (isRawQuery) {
+    items = await fetchQuery(titleQ);
+  } else {
+    const parts: string[] = [];
+    if (titleQ) parts.push(`intitle:"${titleQ}"`);
+    if (authorQ) parts.push(`inauthor:"${authorQ}"`);
+    items = await fetchQuery(parts.join(' '));
 
-  if (items.length === 0) {
-    const plainQ = [titleQ, authorQ].filter(Boolean).join(' ');
-    items = await fetchQuery(plainQ);
+    if (items.length === 0 && titleQ) {
+      const fallbackParts: string[] = [`intitle:${titleQ}`];
+      if (authorQ) fallbackParts.push(authorQ);
+      items = await fetchQuery(fallbackParts.join(' '));
+    }
+
+    if (items.length === 0) {
+      items = await fetchQuery([titleQ, authorQ].filter(Boolean).join(' '));
+    }
   }
 
   return items.map(mapItem).filter((b): b is BookSearchResult => b !== null);
@@ -73,8 +80,15 @@ async function searchGoogleBooks(titleQ: string, authorQ: string): Promise<BookS
 
 async function searchOpenLibrary(titleQ: string, authorQ: string): Promise<BookSearchResult[]> {
   const params = new URLSearchParams({ fields: 'title,author_name,isbn,cover_i,key', limit: '10' });
-  if (titleQ) params.set('title', titleQ);
-  if (authorQ) params.set('author', authorQ);
+  // When both are the same string, it's a raw combined query — use the `q` field
+  // so Open Library tokenises it across all fields.
+  const isRawQuery = titleQ && authorQ && titleQ === authorQ;
+  if (isRawQuery) {
+    params.set('q', titleQ);
+  } else {
+    if (titleQ) params.set('title', titleQ);
+    if (authorQ) params.set('author', authorQ);
+  }
   if (!titleQ && !authorQ) return [];
   const res = await fetchWithTimeout(`https://openlibrary.org/search.json?${params}`);
   if (!res.ok) throw new Error('Open Library error');
@@ -192,11 +206,12 @@ export async function searchBooks(titleQ: string, authorQ: string): Promise<Book
 }
 
 export async function searchBooksHybrid(titleQ: string, authorQ: string): Promise<BookSearchResult[]> {
-  // When only a title query is given (e.g. header search), also match it against
-  // the author field in the DB so typing an author name surfaces their books.
+  // Pass the raw query as both title AND author for the DB so it matches across
+  // both fields (e.g. "harper lee to kill a mockingbird" hits title and author).
+  const dbTitleQ = titleQ;
   const dbAuthorQ = authorQ || titleQ;
   const [dbResult, externalResult] = await Promise.allSettled([
-    searchBooksInDb(titleQ, dbAuthorQ),
+    searchBooksInDb(dbTitleQ, dbAuthorQ),
     searchBooks(titleQ, authorQ),
   ]);
 
