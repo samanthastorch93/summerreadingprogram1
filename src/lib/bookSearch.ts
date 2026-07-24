@@ -97,39 +97,77 @@ async function searchOpenLibrary(titleQ: string, authorQ: string): Promise<BookS
     });
 }
 
+function levenshtein(a: string, b: string): number {
+  const m = a.length, n = b.length;
+  if (m === 0) return n;
+  if (n === 0) return m;
+  const dp: number[] = new Array(n + 1);
+  for (let j = 0; j <= n; j++) dp[j] = j;
+  for (let i = 1; i <= m; i++) {
+    let prev = dp[0];
+    dp[0] = i;
+    for (let j = 1; j <= n; j++) {
+      const tmp = dp[j];
+      dp[j] = Math.min(
+        dp[j] + 1,
+        dp[j - 1] + 1,
+        prev + (a[i - 1] === b[j - 1] ? 0 : 1)
+      );
+      prev = tmp;
+    }
+  }
+  return dp[n];
+}
+
+function similarity(a: string, b: string): number {
+  const maxLen = Math.max(a.length, b.length);
+  if (maxLen === 0) return 1;
+  return 1 - levenshtein(a, b) / maxLen;
+}
+
 function rankResults(results: BookSearchResult[], titleQ: string): BookSearchResult[] {
   const q = titleQ.toLowerCase().trim();
+  if (!q) return results;
   return [...results].sort((a, b) => {
     const at = a.title.toLowerCase().trim();
     const bt = b.title.toLowerCase().trim();
-    const aExact = at === q ? 0 : at.startsWith(q) ? 1 : at.includes(q) ? 2 : 3;
-    const bExact = bt === q ? 0 : bt.startsWith(q) ? 1 : bt.includes(q) ? 2 : 3;
-    return aExact - bExact;
+    const aScore = similarity(q, at.slice(0, Math.max(q.length, at.length)));
+    const bScore = similarity(q, bt.slice(0, Math.max(q.length, bt.length)));
+    return bScore - aScore;
   });
 }
 
 export async function searchBooksInDb(titleQ: string, authorQ: string): Promise<BookSearchResult[]> {
-  let query = supabase.from('books').select('id, title, author, isbn, cover_url, open_library_cover_id, description, bookshop_url, source_url').limit(10);
-  if (titleQ) {
-    query = query.ilike('title', `%${titleQ}%`);
-  }
-  if (authorQ) {
-    query = query.ilike('author', `%${authorQ}%`);
-  }
-  const { data } = await query;
-  if (!data) return [];
-  return data.map((b) => {
-    const cover = b.cover_url
-      ?? (b.open_library_cover_id ? `https://covers.openlibrary.org/b/id/${b.open_library_cover_id}-M.jpg` : null);
-    return {
-      title: b.title,
-      author: b.author,
-      isbn: b.isbn,
-      coverUrl: cover,
-      description: b.description,
-      bookshopUrl: b.bookshop_url ?? `https://bookshop.org/beta-search?keywords=${encodeURIComponent(b.title + ' ' + b.author)}`,
-    } as BookSearchResult;
+  const q = (titleQ || authorQ || '').trim();
+  if (!q) return [];
+
+  const { data, error } = await supabase.rpc('fuzzy_search_books', {
+    query_text: q,
+    limit_count: 10,
   });
+
+  if (error || !data) {
+    let fallback = supabase.from('books').select('id, title, author, isbn, cover_url, open_library_cover_id, description, bookshop_url, source_url').limit(10);
+    if (titleQ) fallback = fallback.ilike('title', `%${titleQ}%`);
+    if (authorQ) fallback = fallback.ilike('author', `%${authorQ}%`);
+    const { data: fbData } = await fallback;
+    return (fbData ?? []).map(dbRowToBookSearchResult);
+  }
+
+  return (data as any[]).map(dbRowToBookSearchResult);
+}
+
+function dbRowToBookSearchResult(b: any): BookSearchResult {
+  const cover = b.cover_url
+    ?? (b.open_library_cover_id ? `https://covers.openlibrary.org/b/id/${b.open_library_cover_id}-M.jpg` : null);
+  return {
+    title: b.title,
+    author: b.author,
+    isbn: b.isbn,
+    coverUrl: cover,
+    description: b.description,
+    bookshopUrl: b.bookshop_url ?? `https://bookshop.org/beta-search?keywords=${encodeURIComponent(b.title + ' ' + b.author)}`,
+  };
 }
 
 export async function searchBooks(titleQ: string, authorQ: string): Promise<BookSearchResult[]> {
