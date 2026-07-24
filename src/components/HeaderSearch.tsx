@@ -87,8 +87,8 @@ export default function HeaderSearch({ allProfiles, onSelectUser, onSelectBook }
           value={query}
           onChange={(e) => { setQuery(e.target.value); setOpen(true); }}
           onFocus={() => setOpen(true)}
-          placeholder="Search readers or books…"
-          className="w-full pl-8 pr-7 py-1.5 text-xs bg-white border-2 border-brand-blue focus:outline-none focus:ring-0 placeholder:text-gray-400 text-gray-900"
+          placeholder="Search books, authors, or readers..."
+          className="w-full pl-8 pr-7 py-1.5 text-xs bg-white border-2 border-brand-blue focus:outline-none focus:ring-0 placeholder:text-gray-400 text-gray-900 header-search-input"
         />
         {query && (
           <button
