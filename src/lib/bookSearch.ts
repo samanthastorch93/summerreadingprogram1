@@ -52,7 +52,7 @@ async function searchGoogleBooks(titleQ: string, authorQ: string): Promise<BookS
 
   const parts: string[] = [];
   if (titleQ) parts.push(`intitle:"${titleQ}"`);
-  if (authorQ) parts.push(authorQ);
+  if (authorQ) parts.push(`inauthor:"${authorQ}"`);
   const qualifiedQ = parts.join(' ');
 
   let items = await fetchQuery(qualifiedQ);
@@ -125,31 +125,44 @@ function similarity(a: string, b: string): number {
   return 1 - levenshtein(a, b) / maxLen;
 }
 
-function rankResults(results: BookSearchResult[], titleQ: string): BookSearchResult[] {
-  const q = titleQ.toLowerCase().trim();
-  if (!q) return results;
+function rankResults(results: BookSearchResult[], titleQ: string, authorQ?: string): BookSearchResult[] {
+  const tq = titleQ.toLowerCase().trim();
+  const aq = (authorQ ?? '').toLowerCase().trim();
+  if (!tq && !aq) return results;
   return [...results].sort((a, b) => {
     const at = a.title.toLowerCase().trim();
     const bt = b.title.toLowerCase().trim();
-    const aScore = similarity(q, at.slice(0, Math.max(q.length, at.length)));
-    const bScore = similarity(q, bt.slice(0, Math.max(q.length, bt.length)));
+    const aa = a.author.toLowerCase().trim();
+    const ba = b.author.toLowerCase().trim();
+    let aScore = 0;
+    let bScore = 0;
+    if (tq) {
+      aScore += similarity(tq, at.slice(0, Math.max(tq.length, at.length)));
+      bScore += similarity(tq, bt.slice(0, Math.max(tq.length, bt.length)));
+    }
+    if (aq) {
+      aScore += similarity(aq, aa) * 1.5;
+      bScore += similarity(aq, ba) * 1.5;
+    }
     return bScore - aScore;
   });
 }
 
 export async function searchBooksInDb(titleQ: string, authorQ: string): Promise<BookSearchResult[]> {
-  const q = (titleQ || authorQ || '').trim();
-  if (!q) return [];
+  const t = (titleQ || '').trim();
+  const a = (authorQ || '').trim();
+  if (!t && !a) return [];
 
   const { data, error } = await supabase.rpc('fuzzy_search_books', {
-    query_text: q,
+    search_title: t || null,
+    search_author: a || null,
     limit_count: 10,
   });
 
   if (error || !data) {
     let fallback = supabase.from('books').select('id, title, author, isbn, cover_url, open_library_cover_id, description, bookshop_url, source_url').limit(10);
-    if (titleQ) fallback = fallback.ilike('title', `%${titleQ}%`);
-    if (authorQ) fallback = fallback.ilike('author', `%${authorQ}%`);
+    if (t) fallback = fallback.ilike('title', `%${t}%`);
+    if (a) fallback = fallback.ilike('author', `%${a}%`);
     const { data: fbData } = await fallback;
     return (fbData ?? []).map(dbRowToBookSearchResult);
   }
@@ -172,15 +185,18 @@ function dbRowToBookSearchResult(b: any): BookSearchResult {
 
 export async function searchBooks(titleQ: string, authorQ: string): Promise<BookSearchResult[]> {
   try {
-    return rankResults(await searchGoogleBooks(titleQ, authorQ), titleQ);
+    return rankResults(await searchGoogleBooks(titleQ, authorQ), titleQ, authorQ);
   } catch {
-    return rankResults(await searchOpenLibrary(titleQ, authorQ), titleQ);
+    return rankResults(await searchOpenLibrary(titleQ, authorQ), titleQ, authorQ);
   }
 }
 
 export async function searchBooksHybrid(titleQ: string, authorQ: string): Promise<BookSearchResult[]> {
+  // When only a title query is given (e.g. header search), also match it against
+  // the author field in the DB so typing an author name surfaces their books.
+  const dbAuthorQ = authorQ || titleQ;
   const [dbResult, externalResult] = await Promise.allSettled([
-    searchBooksInDb(titleQ, authorQ),
+    searchBooksInDb(titleQ, dbAuthorQ),
     searchBooks(titleQ, authorQ),
   ]);
 
@@ -197,7 +213,7 @@ export async function searchBooksHybrid(titleQ: string, authorQ: string): Promis
     }
   }
 
-  return rankResults(merged, titleQ).slice(0, 10);
+  return rankResults(merged, titleQ, authorQ).slice(0, 10);
 }
 
 export function cleanIsbn(isbn: string | null): string | null {
