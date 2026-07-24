@@ -158,6 +158,13 @@ export default function BookDetailModal({ book, allProfiles, onClose, onSelectUs
               <h2 className="font-bold text-gray-900 text-lg leading-snug">{book.title}</h2>
               <p className="text-sm text-gray-500 mt-1">{book.author}</p>
               <div className="flex items-center gap-3 mt-2">
+                <button
+                  onClick={() => onLogBook(book)}
+                  className="inline-flex items-center gap-1 px-2.5 py-1 bg-brand-red text-white font-bold text-[11px] uppercase tracking-wide border-2 border-brand-blue hover:bg-red-700 transition-colors"
+                >
+                  <Plus className="w-3 h-3" strokeWidth={3} />
+                  Log
+                </button>
                 <a
                   href={book.bookshopUrl}
                   target="_blank"
@@ -166,13 +173,6 @@ export default function BookDetailModal({ book, allProfiles, onClose, onSelectUs
                 >
                   Find on Bookshop.org
                 </a>
-                <button
-                  onClick={() => onLogBook(book)}
-                  className="inline-flex items-center gap-1 px-2.5 py-1 bg-brand-red text-white font-bold text-[11px] uppercase tracking-wide border-2 border-brand-blue hover:bg-red-700 transition-colors"
-                >
-                  <Plus className="w-3 h-3" strokeWidth={3} />
-                  Log this book
-                </button>
               </div>
             </div>
           </div>
