@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from 'react';
-import { X, Loader2, BookOpen, Users, Clock } from 'lucide-react';
+import { X, Loader2, BookOpen, Users, Clock, Plus } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { fetchBookDescription } from '../lib/bookSearch';
 import { timeAgo, formatTimeRead, STATUS_LABELS, entryStatusPhrase } from '../lib/types';
@@ -22,9 +22,10 @@ interface Props {
   allProfiles: Profile[];
   onClose: () => void;
   onSelectUser: (userId: string) => void;
+  onLogBook: (book: BookSearchResult) => void;
 }
 
-export default function BookDetailModal({ book, allProfiles, onClose, onSelectUser }: Props) {
+export default function BookDetailModal({ book, allProfiles, onClose, onSelectUser, onLogBook }: Props) {
   const [description, setDescription] = useState<string | null>(book.description);
   const [loadingDesc, setLoadingDesc] = useState(!book.description);
   const [activity, setActivity] = useState<ActivityItem[]>([]);
@@ -156,14 +157,23 @@ export default function BookDetailModal({ book, allProfiles, onClose, onSelectUs
             <div className="min-w-0 flex-1 flex flex-col justify-center">
               <h2 className="font-bold text-gray-900 text-lg leading-snug">{book.title}</h2>
               <p className="text-sm text-gray-500 mt-1">{book.author}</p>
-              <a
-                href={book.bookshopUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-1 mt-2 text-[11px] font-semibold uppercase tracking-wide text-brand-blue hover:underline w-fit"
-              >
-                Find on Bookshop.org
-              </a>
+              <div className="flex items-center gap-3 mt-2">
+                <a
+                  href={book.bookshopUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1 text-[11px] font-semibold uppercase tracking-wide text-brand-blue hover:underline w-fit"
+                >
+                  Find on Bookshop.org
+                </a>
+                <button
+                  onClick={() => onLogBook(book)}
+                  className="inline-flex items-center gap-1 px-2.5 py-1 bg-brand-red text-white font-bold text-[11px] uppercase tracking-wide border-2 border-brand-blue hover:bg-red-700 transition-colors"
+                >
+                  <Plus className="w-3 h-3" strokeWidth={3} />
+                  Log this book
+                </button>
+              </div>
             </div>
           </div>
 

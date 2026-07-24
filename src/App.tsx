@@ -34,6 +34,7 @@ export default function App() {
   const [statusFilter, setStatusFilter] = useState<import('./lib/types').Status | null>(null);
   const [focusedEntryId, setFocusedEntryId] = useState<string | null>(null);
   const [selectedBook, setSelectedBook] = useState<BookSearchResult | null>(null);
+  const [prefillBook, setPrefillBook] = useState<BookSearchResult | null>(null);
 
   const refresh = useCallback(() => setRefreshKey((k) => k + 1), []);
 
@@ -152,8 +153,9 @@ export default function App() {
         <LogEntryModal
           currentUser={profile}
           editEntry={editEntry ?? undefined}
-          onClose={() => { setShowLogModal(false); setEditEntry(null); }}
-          onSaved={() => { setShowLogModal(false); setEditEntry(null); refresh(); }}
+          prefillBook={prefillBook ?? undefined}
+          onClose={() => { setShowLogModal(false); setEditEntry(null); setPrefillBook(null); }}
+          onSaved={() => { setShowLogModal(false); setEditEntry(null); setPrefillBook(null); refresh(); }}
         />
       )}
 
@@ -180,6 +182,7 @@ export default function App() {
           allProfiles={allProfiles}
           onClose={() => setSelectedBook(null)}
           onSelectUser={(userId) => { setSelectedUserId(userId); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
+          onLogBook={(book) => { setSelectedBook(null); setPrefillBook(book); setShowLogModal(true); }}
         />
       )}
 

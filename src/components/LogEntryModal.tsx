@@ -5,9 +5,18 @@ import { STATUS_LABELS, formatTimeRead, countWords } from '../lib/types';
 import type { Status, EntryType, Profile, ReadingEntry } from '../lib/types';
 import BookSearch from './BookSearch';
 
+interface PrefillBook {
+  title: string;
+  author: string;
+  isbn: string | null;
+  coverUrl: string | null;
+  description: string | null;
+}
+
 interface Props {
   currentUser: Profile;
   editEntry?: ReadingEntry;
+  prefillBook?: PrefillBook;
   onClose: () => void;
   onSaved: () => void;
 }
@@ -28,14 +37,14 @@ function statusLabel(s: Status): string {
   return STATUS_LABELS[s];
 }
 
-export default function LogEntryModal({ currentUser, editEntry, onClose, onSaved }: Props) {
+export default function LogEntryModal({ currentUser, editEntry, prefillBook, onClose, onSaved }: Props) {
   const isEditing = !!editEntry;
   const [modalMode, setModalMode] = useState<ModalMode>('new_entry');
   const [entryType, setEntryType] = useState<EntryType>(editEntry?.entry_type ?? 'book');
 
   // New entry fields
-  const [title, setTitle] = useState(editEntry?.book?.title ?? '');
-  const [author, setAuthor] = useState(editEntry?.book?.author ?? '');
+  const [title, setTitle] = useState(editEntry?.book?.title ?? prefillBook?.title ?? '');
+  const [author, setAuthor] = useState(editEntry?.book?.author ?? prefillBook?.author ?? '');
   const [status, setStatus] = useState<Status>(editEntry?.status ?? 'reading');
   const [hours, setHours] = useState(editEntry ? String(Math.floor((editEntry.time_read_minutes ?? 0) / 60)) : '');
   const [minutes, setMinutes] = useState(editEntry ? String((editEntry.time_read_minutes ?? 0) % 60) : '');
@@ -48,9 +57,9 @@ export default function LogEntryModal({ currentUser, editEntry, onClose, onSaved
   const [coverId, setCoverId] = useState<number | null>(
     editEntry?.book?.open_library_cover_id ? parseInt(editEntry.book.open_library_cover_id) : null
   );
-  const [coverUrl, setCoverUrl] = useState<string | null>(editEntry?.book?.cover_url ?? null);
-  const [isbn, setIsbn] = useState<string | null>(editEntry?.book?.isbn ?? null);
-  const [description, setDescription] = useState<string | null>(editEntry?.book?.description ?? null);
+  const [coverUrl, setCoverUrl] = useState<string | null>(editEntry?.book?.cover_url ?? prefillBook?.coverUrl ?? null);
+  const [isbn, setIsbn] = useState<string | null>(editEntry?.book?.isbn ?? prefillBook?.isbn ?? null);
+  const [description, setDescription] = useState<string | null>(editEntry?.book?.description ?? prefillBook?.description ?? null);
   const [articleUrl, setArticleUrl] = useState(editEntry?.book?.source_url ?? '');
   const [fetchingMeta, setFetchingMeta] = useState(false);
 
