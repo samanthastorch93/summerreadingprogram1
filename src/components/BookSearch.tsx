@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { Search, Loader2 } from 'lucide-react';
 import type { BookSearchResult } from '../lib/types';
-import { searchBooks } from '../lib/bookSearch';
+import { searchBooksHybrid } from '../lib/bookSearch';
 
 interface Props {
   title: string;
@@ -47,7 +47,7 @@ export default function BookSearch({ title, author, onTitleChange, onAuthorChang
       lastQueryRef.current = cacheKey;
       setLoading(true);
       try {
-        const books = await searchBooks(titleQ, authorQ);
+        const books = await searchBooksHybrid(titleQ, authorQ);
         setResults(books);
         setOpen(books.length > 0);
       } catch {

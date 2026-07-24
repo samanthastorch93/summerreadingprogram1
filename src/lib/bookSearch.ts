@@ -2,12 +2,23 @@ import { supabase } from './supabase';
 import type { BookSearchResult } from './types';
 
 const GOOGLE_BOOKS_API_KEY = import.meta.env.VITE_GOOGLE_BOOKS_API_KEY ?? '';
+const FETCH_TIMEOUT_MS = 3000;
+
+async function fetchWithTimeout(url: string, opts: RequestInit = {}, timeoutMs = FETCH_TIMEOUT_MS): Promise<Response> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await fetch(url, { ...opts, signal: controller.signal });
+  } finally {
+    clearTimeout(timer);
+  }
+}
 
 async function searchGoogleBooks(titleQ: string, authorQ: string): Promise<BookSearchResult[]> {
   const keyParam = GOOGLE_BOOKS_API_KEY ? `&key=${GOOGLE_BOOKS_API_KEY}` : '';
 
   async function fetchQuery(q: string) {
-    const res = await fetch(
+    const res = await fetchWithTimeout(
       `https://www.googleapis.com/books/v1/volumes?q=${encodeURIComponent(q)}&maxResults=10&printType=books&orderBy=relevance${keyParam}`
     );
     if (!res.ok) throw new Error(`Google Books ${res.status}`);
@@ -65,7 +76,7 @@ async function searchOpenLibrary(titleQ: string, authorQ: string): Promise<BookS
   if (titleQ) params.set('title', titleQ);
   if (authorQ) params.set('author', authorQ);
   if (!titleQ && !authorQ) return [];
-  const res = await fetch(`https://openlibrary.org/search.json?${params}`);
+  const res = await fetchWithTimeout(`https://openlibrary.org/search.json?${params}`);
   if (!res.ok) throw new Error('Open Library error');
   const data = await res.json();
   return (data.docs ?? [])
@@ -130,12 +141,13 @@ export async function searchBooks(titleQ: string, authorQ: string): Promise<Book
 }
 
 export async function searchBooksHybrid(titleQ: string, authorQ: string): Promise<BookSearchResult[]> {
-  const dbResults = await searchBooksInDb(titleQ, authorQ);
+  const [dbResult, externalResult] = await Promise.allSettled([
+    searchBooksInDb(titleQ, authorQ),
+    searchBooks(titleQ, authorQ),
+  ]);
 
-  let externalResults: BookSearchResult[] = [];
-  try {
-    externalResults = await searchBooks(titleQ, authorQ);
-  } catch { /* external APIs may be unreachable */ }
+  const dbResults = dbResult.status === 'fulfilled' ? dbResult.value : [];
+  const externalResults = externalResult.status === 'fulfilled' ? externalResult.value : [];
 
   const seen = new Set(dbResults.map((b) => `${b.title.toLowerCase()}|${b.author.toLowerCase()}`));
   const merged = [...dbResults];
@@ -173,14 +185,14 @@ export async function fetchBookDescription(
     try {
       const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string;
       const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY as string;
-      const res = await fetch(`${SUPABASE_URL}/functions/v1/populate-book-description`, {
+      const res = await fetchWithTimeout(`${SUPABASE_URL}/functions/v1/populate-book-description`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
         },
         body: JSON.stringify({ book_id: bookId }),
-      });
+      }, 5000);
       if (res.ok) {
         const data = await res.json();
         if (data.description) return data.description;
@@ -191,12 +203,12 @@ export async function fetchBookDescription(
   try {
     if (isbn) {
       try {
-        const editionRes = await fetch(`https://openlibrary.org/isbn/${isbn}.json`);
+        const editionRes = await fetchWithTimeout(`https://openlibrary.org/isbn/${isbn}.json`);
         if (editionRes.ok) {
           const edition = await editionRes.json();
           const workKey: string | null = edition?.works?.[0]?.key ?? null;
           if (workKey) {
-            const workRes = await fetch(`https://openlibrary.org${workKey}.json`);
+            const workRes = await fetchWithTimeout(`https://openlibrary.org${workKey}.json`);
             if (workRes.ok) {
               const workData = await workRes.json();
               const raw = workData?.description ?? workData?.notes ?? null;
@@ -207,7 +219,7 @@ export async function fetchBookDescription(
         }
       } catch { /* fall through */ }
     }
-    const search = await fetch(
+    const search = await fetchWithTimeout(
       `https://openlibrary.org/search.json?title=${encodeURIComponent(title)}&author=${encodeURIComponent(author)}&limit=3`
     );
     if (search.ok) {
@@ -215,7 +227,7 @@ export async function fetchBookDescription(
       for (const doc of results.docs ?? []) {
         if (!doc.key) continue;
         try {
-          const workRes = await fetch(`https://openlibrary.org${doc.key}.json`);
+          const workRes = await fetchWithTimeout(`https://openlibrary.org${doc.key}.json`);
           if (!workRes.ok) continue;
           const workData = await workRes.json();
           const raw = workData?.description ?? workData?.notes ?? null;
