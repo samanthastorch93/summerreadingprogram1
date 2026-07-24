@@ -26,12 +26,4 @@
     display: none;
   }
 
-  .header-search-input::placeholder {
-    content: "Search";
-  }
-  @media (min-width: 640px) {
-    .header-search-input::placeholder {
-      content: "Search books, authors, or readers...";
-    }
-  }
 }

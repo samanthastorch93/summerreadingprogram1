@@ -12,6 +12,14 @@ interface Props {
 
 export default function HeaderSearch({ allProfiles, onSelectUser, onSelectBook }: Props) {
   const [query, setQuery] = useState('');
+  const [isMobile, setIsMobile] = useState(() => window.matchMedia('(max-width: 639px)').matches);
+
+  useEffect(() => {
+    const mq = window.matchMedia('(max-width: 639px)');
+    const handler = (e: MediaQueryListEvent) => setIsMobile(e.matches);
+    mq.addEventListener('change', handler);
+    return () => mq.removeEventListener('change', handler);
+  }, []);
   const [open, setOpen] = useState(false);
   const [userResults, setUserResults] = useState<Profile[]>([]);
   const [bookResults, setBookResults] = useState<BookSearchResult[]>([]);
@@ -87,8 +95,8 @@ export default function HeaderSearch({ allProfiles, onSelectUser, onSelectBook }
           value={query}
           onChange={(e) => { setQuery(e.target.value); setOpen(true); }}
           onFocus={() => setOpen(true)}
-          placeholder="Search books, authors, or readers..."
-          className="w-full pl-8 pr-7 py-1.5 text-xs bg-white border-2 border-brand-blue focus:outline-none focus:ring-0 placeholder:text-gray-400 text-gray-900 header-search-input"
+          placeholder={isMobile ? 'Search' : 'Search books, authors, or readers...'}
+          className="w-full pl-8 pr-7 py-1.5 text-xs bg-white border-2 border-brand-blue focus:outline-none focus:ring-0 placeholder:text-gray-400 text-gray-900"
         />
         {query && (
           <button
