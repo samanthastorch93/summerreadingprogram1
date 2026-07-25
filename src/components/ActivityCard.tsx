@@ -45,6 +45,7 @@ export default function ActivityCard({ log, allProfiles, currentUser, onRefresh,
   const [likeCount, setLikeCount] = useState(0);
   const [isLiked, setIsLiked] = useState(false);
   const [likerUserIds, setLikerUserIds] = useState<string[]>([]);
+  const [commentCount, setCommentCount] = useState(0);
   const [synopsisOpen, setSynopsisOpen] = useState(false);
   const [currentStatus, setCurrentStatus] = useState<Status | undefined>(log.entry_status);
   const [addingTime, setAddingTime] = useState(false);
@@ -207,6 +208,17 @@ export default function ActivityCard({ log, allProfiles, currentUser, onRefresh,
         setIsLiked(ids.includes(currentUser.id));
       });
   }, [log.id]);
+
+  useEffect(() => {
+    if (!log.entry_id) { setCommentCount(0); return; }
+    let mounted = true;
+    supabase
+      .from('comments')
+      .select('id', { count: 'exact', head: true })
+      .eq('entry_id', log.entry_id)
+      .then(({ count }) => { if (mounted) setCommentCount(count ?? 0); });
+    return () => { mounted = false; };
+  }, [log.entry_id, commentsOpen]);
 
   async function toggleLike() {
     if (isLiked) {
@@ -651,7 +663,7 @@ export default function ActivityCard({ log, allProfiles, currentUser, onRefresh,
           className="flex items-center gap-1.5 text-xs font-medium text-gray-500 hover:text-gray-900 transition-colors"
         >
           <MessageCircle className="w-3.5 h-3.5" />
-          comment
+          {commentCount > 0 ? `${commentCount} comment${commentCount !== 1 ? 's' : ''}` : 'comment'}
           <span className="text-[10px]">{commentsOpen ? '▲' : '▼'}</span>
         </button>
       </div>
