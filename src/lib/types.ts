@@ -1,6 +1,6 @@
 export type Status = 'want_to_read' | 'reading' | 'finished' | 'did_not_finish';
 export type MediaType = 'upload' | null;
-export type EntryType = 'book' | 'article';
+export type EntryType = 'book' | 'audiobook';
 
 export interface Profile {
   id: string;
@@ -22,6 +22,7 @@ export interface Book {
   bookshop_url: string | null;
   source_url: string | null;
   description: string | null;
+  narrator: string | null;
   created_at: string;
 }
 

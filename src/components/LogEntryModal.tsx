@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { X, Upload, Loader2, BookOpen, Newspaper, Clock, Link, Camera } from 'lucide-react';
+import { X, Upload, Loader2, BookOpen, Headphones, Clock, Link, Camera } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { STATUS_LABELS, formatTimeRead, countWords } from '../lib/types';
 import type { Status, EntryType, Profile, ReadingEntry } from '../lib/types';
@@ -60,8 +60,8 @@ export default function LogEntryModal({ currentUser, editEntry, prefillBook, onC
   const [coverUrl, setCoverUrl] = useState<string | null>(editEntry?.book?.cover_url ?? prefillBook?.coverUrl ?? null);
   const [isbn, setIsbn] = useState<string | null>(editEntry?.book?.isbn ?? prefillBook?.isbn ?? null);
   const [description, setDescription] = useState<string | null>(editEntry?.book?.description ?? prefillBook?.description ?? null);
-  const [articleUrl, setArticleUrl] = useState(editEntry?.book?.source_url ?? '');
-  const [fetchingMeta, setFetchingMeta] = useState(false);
+  const [listenUrl, setListenUrl] = useState(editEntry?.book?.source_url ?? '');
+  const [narrator, setNarrator] = useState(editEntry?.book?.narrator ?? '');
 
   const [coverUploading, setCoverUploading] = useState(false);
   const [coverPasteMode, setCoverPasteMode] = useState(false);
@@ -74,38 +74,6 @@ export default function LogEntryModal({ currentUser, editEntry, prefillBook, onC
   const coverFileRef = useRef<HTMLInputElement>(null);
   const photoPickerRef = useRef<HTMLDivElement>(null);
   const logPhotoPickerRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (entryType !== 'article') return;
-    const trimmed = articleUrl.trim();
-    if (!trimmed || !/^https?:\/\//i.test(trimmed)) return;
-    const t = setTimeout(async () => {
-      setFetchingMeta(true);
-      try {
-        const res = await fetch(
-          `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/fetch-link-preview`,
-          {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}` },
-            body: JSON.stringify({ url: trimmed }),
-          }
-        );
-        if (!res.ok) return;
-        const data = await res.json();
-        if (data.title && !title) setTitle(data.title);
-        if (!author) {
-          const parts = [data.author, data.siteName].filter(Boolean);
-          if (parts.length) setAuthor(parts.join(', '));
-        }
-        if (data.image && !coverUrl) setCoverUrl(data.image);
-      } catch {
-        // silently ignore
-      } finally {
-        setFetchingMeta(false);
-      }
-    }, 800);
-    return () => clearTimeout(t);
-  }, [articleUrl, entryType]);
 
   useEffect(() => {
     if (!photoPickerOpen) return;
@@ -179,7 +147,8 @@ export default function LogEntryModal({ currentUser, editEntry, prefillBook, onC
     setCoverId(null);
     setCoverUrl(null);
     setIsbn(null);
-    setArticleUrl('');
+    setListenUrl('');
+    setNarrator('');
     setError(null);
   }
 
@@ -218,7 +187,7 @@ export default function LogEntryModal({ currentUser, editEntry, prefillBook, onC
       if (editEntry.book_id) {
         await supabase
           .from('books')
-          .update({ title: title.trim(), author: author.trim() || 'Unknown', cover_url: coverUrl ?? null })
+          .update({ title: title.trim(), author: author.trim() || 'Unknown', cover_url: coverUrl ?? null, narrator: entryType === 'audiobook' ? (narrator.trim() || null) : null })
           .eq('id', editEntry.book_id);
       }
       const { error: entryErr } = await supabase
@@ -238,7 +207,7 @@ export default function LogEntryModal({ currentUser, editEntry, prefillBook, onC
 
     const bookshopUrl = entryType === 'book'
       ? `https://bookshop.org/beta-search?keywords=${encodeURIComponent(title + (author ? ' ' + author : ''))}`
-      : null;
+      : `https://libro.fm/search?q=${encodeURIComponent(title + (author ? ' ' + author : ''))}`;
 
     let bookId: string;
     const { data: existing } = await supabase
@@ -260,8 +229,9 @@ export default function LogEntryModal({ currentUser, editEntry, prefillBook, onC
           open_library_cover_id: coverId ? String(coverId) : null,
           cover_url: coverUrl ?? null,
           bookshop_url: bookshopUrl,
-          source_url: entryType === 'article' ? (articleUrl.trim() || null) : null,
-          description: entryType === 'book' ? (description ?? null) : null,
+          source_url: entryType === 'audiobook' ? (listenUrl.trim() || null) : null,
+          narrator: entryType === 'audiobook' ? (narrator.trim() || null) : null,
+          description: description ?? null,
         })
         .select('id')
         .single();
@@ -647,94 +617,68 @@ export default function LogEntryModal({ currentUser, editEntry, prefillBook, onC
                     </button>
                     <button
                       type="button"
-                      onClick={() => handleTypeSwitch('article')}
+                      onClick={() => handleTypeSwitch('audiobook')}
                       className={`flex-1 flex items-center justify-center gap-2 py-2.5 font-semibold text-sm uppercase transition-colors ${
-                        entryType === 'article' ? 'bg-gray-900 text-white' : 'bg-white text-gray-500 hover:bg-gray-50'
+                        entryType === 'audiobook' ? 'bg-gray-900 text-white' : 'bg-white text-gray-500 hover:bg-gray-50'
                       }`}
                     >
-                      <Newspaper className="w-4 h-4" />
-                      Article
+                      <Headphones className="w-4 h-4" />
+                      Audiobook
                     </button>
                   </div>
                 </div>
               )}
 
-              {/* Article URL — shown first so it can populate title/author */}
-              {entryType === 'article' && !isEditing && (
+              {/* Title + Author via BookSearch — for both book and audiobook */}
+              <div>
+                {entryType === 'audiobook' && (
+                  <p className={`${labelClass} block`}>Audiobook Title</p>
+                )}
+                <BookSearch
+                  title={title}
+                  author={author}
+                  onTitleChange={setTitle}
+                  onAuthorChange={setAuthor}
+                  onEnrich={handleEnrich}
+                  titleLabel={entryType === 'audiobook' ? 'Audiobook Title' : 'Book Title'}
+                />
+              </div>
+
+              {/* Narrator — audiobook only */}
+              {entryType === 'audiobook' && (
+                <div>
+                  <p className={`${labelClass} block`}>
+                    Narrator <span className="font-normal normal-case">(optional)</span>
+                  </p>
+                  <input
+                    type="text"
+                    value={narrator}
+                    onChange={(e) => setNarrator(e.target.value)}
+                    placeholder="e.g. Julia Whelan"
+                    className={inputClass}
+                  />
+                </div>
+              )}
+
+              {/* Listen Link — audiobook only */}
+              {entryType === 'audiobook' && (
                 <div>
                   <p className={`${labelClass} flex items-center gap-1.5`}>
                     <Link className="w-3 h-3" />
-                    URL <span className="font-normal normal-case">(optional)</span>
-                    {fetchingMeta && <Loader2 className="w-3 h-3 animate-spin ml-1 text-brand-blue" />}
+                    Listen Link <span className="font-normal normal-case">(optional)</span>
                   </p>
                   <input
                     type="url"
-                    value={articleUrl}
-                    onChange={(e) => setArticleUrl(e.target.value)}
-                    placeholder="https://… paste to auto-fill title"
-                    className={inputClass}
-                  />
-                </div>
-              )}
-
-              {/* Title */}
-              <div>
-                {entryType !== 'book' && (
-                  <p className={`${labelClass} block`}>Article Title</p>
-                )}
-                {entryType === 'book' ? (
-                  <BookSearch
-                    title={title}
-                    author={author}
-                    onTitleChange={setTitle}
-                    onAuthorChange={setAuthor}
-                    onEnrich={handleEnrich}
-                  />
-                ) : (
-                  <input
-                    type="text"
-                    value={title}
-                    onChange={(e) => setTitle(e.target.value)}
-                    placeholder="Enter article title…"
-                    className={inputClass}
-                  />
-                )}
-              </div>
-
-              {/* Author / source — for articles; for books it's inside BookSearch */}
-              {entryType === 'article' && (
-                <div>
-                  <p className={`${labelClass} block`}>
-                    {entryType === 'book' ? 'Author' : 'Author / Publication'}
-                  </p>
-                  <input
-                    type="text"
-                    value={author}
-                    onChange={(e) => setAuthor(e.target.value)}
-                    placeholder={entryType === 'book' ? 'Author name…' : 'e.g. The New Yorker, Jane Smith…'}
-                    className={inputClass}
-                  />
-                </div>
-              )}
-
-              {/* Article URL stored for edit mode */}
-              {entryType === 'article' && isEditing && (
-                <div>
-                  <p className={`${labelClass} block`}>
-                    URL <span className="font-normal normal-case">(optional)</span>
-                  </p>
-                  <input
-                    type="url"
-                    value={articleUrl}
-                    onChange={(e) => setArticleUrl(e.target.value)}
+                    value={listenUrl}
+                    onChange={(e) => setListenUrl(e.target.value)}
                     placeholder="https://…"
                     className={inputClass}
                   />
                 </div>
               )}
 
-              {/* Book cover — preview if found, upload option when no cover */}
-              {entryType === 'book' && title.trim() && (
+              {/* Cover — preview if found, upload option when no cover */}
+              {title.trim() && (
                 <div>
                   {coverUrl ? (
                     <div className="flex items-center gap-3 border-2 border-brand-blue p-3 bg-gray-50">
@@ -853,7 +797,7 @@ export default function LogEntryModal({ currentUser, editEntry, prefillBook, onC
               {/* Time read */}
               <div>
                 <p className={`${labelClass} block`}>
-                  Time Read <span className="font-normal normal-case">(optional)</span>
+                  {entryType === 'audiobook' ? 'Time Listened' : 'Time Read'} <span className="font-normal normal-case">(optional)</span>
                 </p>
                 <div className="flex gap-3">
                   <div className="relative flex-1">

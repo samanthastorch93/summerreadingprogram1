@@ -30,7 +30,7 @@ export default function ActivityCard({ log, allProfiles, currentUser, onRefresh,
   const isFinishedEvent = log.minutes_added === 0 && log.status_override === 'finished';
   const timeLabel = isFinishedEvent ? null : formatTimeRead(log.minutes_added);
   const isOwn = log.user_id === currentUser.id;
-  const isArticle = log.entry_type === 'article';
+  const isAudiobook = log.entry_type === 'audiobook';
   const [menuOpen, setMenuOpen] = useState(false);
   const [statusDropdownOpen, setStatusDropdownOpen] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -406,7 +406,7 @@ export default function ActivityCard({ log, allProfiles, currentUser, onRefresh,
               </span>
             ) : null}
             <span className="inline-flex items-center px-2 py-0.5 text-[11px] font-semibold border border-brand-blue bg-white text-gray-900">
-              {isArticle ? 'Article' : 'Book'}
+              {isAudiobook ? 'Audiobook' : 'Book'}
             </span>
             {canAddTime && !addingTime && (
               <button

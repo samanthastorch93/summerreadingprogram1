@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { MessageCircle, BookOpen, Newspaper, MoreHorizontal, PlusCircle, X, Loader2, Camera, EyeOff, Eye, ChevronDown, Link, Plus } from 'lucide-react';
+import { MessageCircle, BookOpen, Headphones, MoreHorizontal, PlusCircle, X, Loader2, Camera, EyeOff, Eye, ChevronDown, Link, Plus } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import {
   timeAgo,
@@ -65,7 +65,7 @@ function FaviconCover({ url, entryId }: { url: string; entryId: string }) {
         />
       ) : (
         <div className="w-full h-full flex items-center justify-center" style={{ background: bg }}>
-          <Newspaper className="w-5 h-5" style={{ color: icon }} />
+          <Headphones className="w-5 h-5" style={{ color: icon }} />
         </div>
       )}
     </div>
@@ -118,7 +118,7 @@ export default function EntryCard({
   const book = entry.book;
   const profile = allProfiles.find((p) => p.id === entry.user_id) ?? entry.profile;
   const commentCount = entry.comment_ids?.length ?? 0;
-  const isArticle = entry.entry_type === 'article';
+  const isAudiobook = entry.entry_type === 'audiobook';
   const isOwn = entry.user_id === currentUser.id;
   const isMod = currentUser.is_moderator;
   const canAddTime = isOwn && (entry.status === 'reading' || entry.status === 'finished');
@@ -358,7 +358,7 @@ export default function EntryCard({
         <div className="flex gap-3">
           {/* Cover / icon */}
           <div className="shrink-0 relative">
-            {book.cover_url && !isArticle ? (
+            {book.cover_url && !isAudiobook ? (
               <button
                 type="button"
                 onClick={() => setSynopsisOpen(true)}
@@ -374,9 +374,9 @@ export default function EntryCard({
                   }}
                 />
               </button>
-            ) : isArticle && book.source_url ? (
+            ) : isAudiobook && book.source_url ? (
               <FaviconCover url={book.source_url} entryId={entry.id} />
-            ) : !isArticle ? (
+            ) : !isAudiobook ? (
               <button
                 type="button"
                 onClick={() => setSynopsisOpen(true)}
@@ -395,7 +395,7 @@ export default function EntryCard({
                 className="w-12 h-[68px] border-2 border-brand-blue flex items-center justify-center"
                 style={{ background: coverPairing(entry.id).bg }}
               >
-                <Newspaper className="w-5 h-5" style={{ color: coverPairing(entry.id).icon }} />
+                <Headphones className="w-5 h-5" style={{ color: coverPairing(entry.id).icon }} />
               </div>
             )}
           </div>
@@ -404,7 +404,7 @@ export default function EntryCard({
           <div className="flex-1 min-w-0">
             <div className="flex items-start justify-between gap-1">
               <div className="min-w-0">
-                {isArticle && book.source_url ? (
+                {isAudiobook && book.source_url ? (
                   <a
                     href={book.source_url}
                     target="_blank"
@@ -454,7 +454,7 @@ export default function EntryCard({
                       >
                         Delete Entry
                       </button>
-                      {!isArticle && (
+                      {!isAudiobook && (
                         <a
                           href={book.bookshop_url ?? `https://bookshop.org/beta-search?keywords=${encodeURIComponent(book.title + ' ' + book.author)}`}
                           target="_blank"
@@ -463,6 +463,17 @@ export default function EntryCard({
                           className="block px-4 py-3 text-[11px] font-semibold uppercase tracking-wide text-brand-blue hover:bg-blue-50 transition-colors"
                         >
                           Buy on Bookshop.org
+                        </a>
+                      )}
+                      {isAudiobook && (
+                        <a
+                          href={book.bookshop_url ?? `https://libro.fm/search?q=${encodeURIComponent(book.title + ' ' + book.author)}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          onClick={() => setMenuOpen(false)}
+                          className="block px-4 py-3 text-[11px] font-semibold uppercase tracking-wide text-brand-blue hover:bg-blue-50 transition-colors"
+                        >
+                          Listen on Libro.fm
                         </a>
                       )}
                     </div>
@@ -534,9 +545,9 @@ export default function EntryCard({
                 </span>
               )}
               <span className="inline-flex items-center px-2 py-0.5 text-[11px] font-semibold border border-brand-blue bg-white text-gray-900">
-                {isArticle ? 'Article' : 'Book'}
+                {isAudiobook ? 'Audiobook' : 'Book'}
               </span>
-              {!isOwn && !isArticle && onLogBook && (
+              {!isOwn && !isAudiobook && onLogBook && (
                 <button
                   onClick={() => onLogBook({
                     title: book.title,
@@ -778,7 +789,7 @@ export default function EntryCard({
       />
     )}
 
-    {synopsisOpen && book && !isArticle && (
+    {synopsisOpen && book && !isAudiobook && (
       <BookSynopsisModal
         bookId={book.id}
         title={book.title}

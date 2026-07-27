@@ -9,11 +9,12 @@ interface Props {
   onTitleChange: (title: string) => void;
   onAuthorChange: (author: string) => void;
   onEnrich: (data: Omit<BookSearchResult, 'bookshopUrl'>) => void;
+  titleLabel?: string;
 }
 
 type ActiveField = 'title' | 'author';
 
-export default function BookSearch({ title, author, onTitleChange, onAuthorChange, onEnrich }: Props) {
+export default function BookSearch({ title, author, onTitleChange, onAuthorChange, onEnrich, titleLabel = 'Book Title' }: Props) {
   const [results, setResults] = useState<BookSearchResult[]>([]);
   const [loading, setLoading] = useState(false);
   const [openFor, setOpenFor] = useState<ActiveField | null>(null);
@@ -105,7 +106,7 @@ export default function BookSearch({ title, author, onTitleChange, onAuthorChang
   return (
     <div className="space-y-3" ref={containerRef}>
       <div className="relative">
-        <p className="text-[10px] font-semibold uppercase tracking-widest text-gray-500 mb-1.5">Book Title</p>
+        <p className="text-[10px] font-semibold uppercase tracking-widest text-gray-500 mb-1.5">{titleLabel}</p>
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
           <input
