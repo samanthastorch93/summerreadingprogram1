@@ -651,7 +651,7 @@ export default function LogEntryModal({ currentUser, editEntry, prefillBook, onC
                     type="text"
                     value={narrator}
                     onChange={(e) => setNarrator(e.target.value)}
-                    placeholder="e.g. Julia Whelan"
+                    placeholder="e.g. Toni Morrison"
                     className={inputClass}
                   />
                 </div>
