@@ -133,7 +133,7 @@ export default function BookSearch({ title, author, onTitleChange, onAuthorChang
             value={author}
             onChange={(e) => { bookSelectedRef.current = false; onAuthorChange(e.target.value); lastQueryRef.current = ''; setOpenFor('author'); }}
             onFocus={() => { if (!bookSelectedRef.current && results.length > 0) setOpenFor('author'); }}
-            placeholder="Type an author to see their books…"
+            placeholder="Type an author to see their books"
             className="w-full pl-9 pr-4 py-2.5 border-2 border-brand-blue text-sm font-medium focus:outline-none focus:ring-0 focus:border-brand-blue bg-white"
           />
           {loading && openFor === 'author' && (
