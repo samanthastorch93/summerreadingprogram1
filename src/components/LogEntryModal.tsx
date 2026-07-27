@@ -631,9 +631,6 @@ export default function LogEntryModal({ currentUser, editEntry, prefillBook, onC
 
               {/* Title + Author via BookSearch — for both book and audiobook */}
               <div>
-                {entryType === 'audiobook' && (
-                  <p className={`${labelClass} block`}>Audiobook Title</p>
-                )}
                 <BookSearch
                   title={title}
                   author={author}
