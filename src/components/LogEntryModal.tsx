@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { X, Upload, Loader2, BookOpen, Headphones, Clock, Link, Camera } from 'lucide-react';
 import { supabase } from '../lib/supabase';
-import { STATUS_LABELS, formatTimeRead, countWords } from '../lib/types';
+import { statusLabel as sharedStatusLabel, formatTimeRead, countWords } from '../lib/types';
 import type { Status, EntryType, Profile, ReadingEntry } from '../lib/types';
 import BookSearch from './BookSearch';
 
@@ -34,11 +34,7 @@ const STATUS_BTN: Record<Status, string> = {
 
 function statusLabel(s: Status, type: EntryType): string {
   if (s === 'did_not_finish') return 'DNF';
-  if (type === 'audiobook') {
-    if (s === 'want_to_read') return 'Want to Listen';
-    if (s === 'reading') return 'Listening';
-  }
-  return STATUS_LABELS[s];
+  return sharedStatusLabel(s, type);
 }
 
 export default function LogEntryModal({ currentUser, editEntry, prefillBook, onClose, onSaved }: Props) {
@@ -320,7 +316,7 @@ export default function LogEntryModal({ currentUser, editEntry, prefillBook, onC
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-4 border-b-2 border-brand-blue bg-brand-yellow sticky top-0 z-10">
           <h2 className="font-bold text-lg uppercase text-brand-blue">
-            {isEditing ? 'Edit Entry' : modalMode === 'log_time' ? 'Log Time' : 'Log an Entry'}
+            {isEditing ? 'Edit Entry' : modalMode === 'log_time' ? 'Log Time' : entryType === 'audiobook' ? 'Log an Audiobook' : 'Log a Book'}
           </h2>
           <button onClick={onClose} className="p-1 hover:opacity-60 transition-opacity">
             <X className="w-5 h-5" strokeWidth={3} />
@@ -490,7 +486,7 @@ export default function LogEntryModal({ currentUser, editEntry, prefillBook, onC
                   <textarea
                     value={logNote}
                     onChange={(e) => setLogNote(e.target.value)}
-                    placeholder="{entryType === 'audiobook' ? 'What did you listen to today?' : 'What did you read today?'}"
+                    placeholder={entryType === 'audiobook' ? 'What did you listen to today?' : 'What did you read today?'}
                     rows={2}
                     className="w-full px-3 py-2.5 border-2 border-brand-blue text-sm font-medium focus:outline-none focus:border-brand-blue resize-none"
                   />
@@ -789,7 +785,7 @@ export default function LogEntryModal({ currentUser, editEntry, prefillBook, onC
                       } ${status === s && i < STATUSES.length - 1 ? 'border-r-2 border-brand-blue' : ''
                       } ${status === s ? STATUS_BTN[s] : 'bg-white text-gray-400 hover:bg-gray-50'}`}
                     >
-                      {s === 'did_not_finish' ? 'DNF' : STATUS_LABELS[s]}
+                      {statusLabel(s, entryType)}
                     </button>
                   ))}
                 </div>

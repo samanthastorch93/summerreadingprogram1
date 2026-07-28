@@ -2,8 +2,8 @@ import { useEffect, useState, useCallback } from 'react';
 import { X, Loader2, BookOpen, Users, Clock, Plus } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { fetchBookDescription } from '../lib/bookSearch';
-import { timeAgo, formatTimeRead, STATUS_LABELS, entryStatusPhrase } from '../lib/types';
-import type { Profile, Status } from '../lib/types';
+import { timeAgo, formatTimeRead, statusLabel, entryStatusPhrase } from '../lib/types';
+import type { Profile, Status, EntryType } from '../lib/types';
 import type { BookSearchResult } from '../lib/types';
 import AvatarIcon from './AvatarIcon';
 
@@ -12,6 +12,7 @@ interface ActivityItem {
   user_id: string;
   type: 'entry' | 'time_log';
   status: Status | null;
+  entry_type: EntryType | null;
   note: string | null;
   minutes: number | null;
   created_at: string;
@@ -74,13 +75,13 @@ export default function BookDetailModal({ book, allProfiles, onClose, onSelectUs
       const [entriesRes, timeLogsRes] = await Promise.all([
         supabase
           .from('reading_entries')
-          .select('id, user_id, status, note, created_at')
+          .select('id, user_id, status, note, created_at, entry_type')
           .in('book_id', bookIds)
           .order('created_at', { ascending: false })
           .limit(50),
         supabase
           .from('time_logs')
-          .select('id, user_id, minutes_added, note, created_at')
+          .select('id, user_id, minutes_added, note, created_at, entry_type')
           .in('book_id', bookIds)
           .order('created_at', { ascending: false })
           .limit(50),
@@ -93,6 +94,7 @@ export default function BookDetailModal({ book, allProfiles, onClose, onSelectUs
         user_id: e.user_id,
         type: 'entry' as const,
         status: e.status as Status,
+        entry_type: (e.entry_type as EntryType) ?? null,
         note: e.note,
         minutes: null,
         created_at: e.created_at,
@@ -103,6 +105,7 @@ export default function BookDetailModal({ book, allProfiles, onClose, onSelectUs
         user_id: t.user_id,
         type: 'time_log' as const,
         status: null,
+        entry_type: (t.entry_type as EntryType) ?? null,
         note: t.note,
         minutes: t.minutes_added,
         created_at: t.created_at,
@@ -242,16 +245,16 @@ export default function BookDetailModal({ book, allProfiles, onClose, onSelectUs
                       <div className="flex items-center gap-1.5 flex-wrap">
                         {item.type === 'entry' && item.status ? (
                           <>
-                            <span className="text-xs text-gray-600">{entryStatusPhrase(item.status)}</span>
+                            <span className="text-xs text-gray-600">{entryStatusPhrase(item.status, item.entry_type ?? undefined)}</span>
                             <span className="inline-flex items-center px-1.5 py-0.5 text-[10px] font-semibold border border-brand-blue bg-brand-yellow text-gray-900 uppercase tracking-wide">
-                              {STATUS_LABELS[item.status]}
+                              {statusLabel(item.status, item.entry_type ?? undefined)}
                             </span>
                           </>
                         ) : (
                           <>
                             <Clock className="w-3 h-3 text-gray-400" />
                             <span className="text-xs text-gray-600">
-                              logged {formatTimeRead(item.minutes ?? 0)} of reading
+                              logged {formatTimeRead(item.minutes ?? 0)} {item.entry_type === 'audiobook' ? 'listening' : 'reading'}
                             </span>
                           </>
                         )}

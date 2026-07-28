@@ -113,11 +113,23 @@ export const STATUS_LABELS: Record<Status, string> = {
   did_not_finish: 'Did Not Finish',
 };
 
-export function entryStatusPhrase(status: Status): string {
-  if (status === 'reading') return 'is reading';
-  if (status === 'finished') return 'finished reading';
+const AUDIO_STATUS_LABELS: Record<Status, string> = {
+  want_to_read: 'Want to Listen',
+  reading: 'Listening',
+  finished: 'Finished',
+  did_not_finish: 'Did Not Finish',
+};
+
+export function statusLabel(status: Status, entryType?: EntryType): string {
+  return entryType === 'audiobook' ? AUDIO_STATUS_LABELS[status] : STATUS_LABELS[status];
+}
+
+export function entryStatusPhrase(status: Status, entryType?: EntryType): string {
+  const verb = entryType === 'audiobook' ? 'listening' : 'reading';
+  if (status === 'reading') return `is ${verb}`;
+  if (status === 'finished') return `finished ${verb}`;
   if (status === 'did_not_finish') return 'did not finish';
-  return 'wants to read';
+  return entryType === 'audiobook' ? 'wants to listen' : 'wants to read';
 }
 
 export function formatTimeRead(minutes: number): string {

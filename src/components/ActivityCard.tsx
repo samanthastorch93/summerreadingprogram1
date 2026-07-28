@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { Clock, BookOpen, MoreHorizontal, Loader2, Check, X, Camera, Trash2, MessageCircle, ChevronDown, PlusCircle, Link } from 'lucide-react';
 import { supabase } from '../lib/supabase';
-import { timeAgo, formatTimeRead, STATUS_LABELS, countWords } from '../lib/types';
+import { timeAgo, formatTimeRead, statusLabel, countWords } from '../lib/types';
 import type { TimeLog, Profile, Status } from '../lib/types';
 import ConfirmDialog from './ConfirmDialog';
 import CommentSection from './CommentSection';
@@ -265,7 +265,7 @@ export default function ActivityCard({ log, allProfiles, currentUser, onRefresh,
           {' '}
           {isFinishedEvent ? (
             <>
-              <span className="text-gray-500">finished reading</span>
+              <span className="text-gray-500">finished {isAudiobook ? 'listening' : 'reading'}</span>
             </>
           ) : (
             <>
@@ -288,7 +288,7 @@ export default function ActivityCard({ log, allProfiles, currentUser, onRefresh,
                   <span className="text-gray-500">— now</span>
                   {' '}
                   <span className="text-gray-900">
-                    {STATUS_LABELS[log.status_override]}
+                    {statusLabel(log.status_override, log.entry_type)}
                   </span>
                 </>
               )}
@@ -374,27 +374,22 @@ export default function ActivityCard({ log, allProfiles, currentUser, onRefresh,
                   onClick={() => setStatusDropdownOpen((o) => !o)}
                   className={`inline-flex items-center gap-1 px-2 py-0.5 text-[11px] font-semibold border uppercase tracking-wide transition-colors ${STATUS_STYLES[currentStatus]}`}
                 >
-                  {STATUS_LABELS[currentStatus]}
+                  {statusLabel(currentStatus, log.entry_type)}
                   <ChevronDown className="w-3 h-3 shrink-0" />
                 </button>
                 {statusDropdownOpen && (
                   <div className="absolute left-0 top-full mt-0.5 z-50 bg-white border-2 border-brand-blue shadow-[4px_4px_0px_0px_rgba(15,0,227,1)] min-w-[160px]">
                     {(
-                      [
-                        { key: 'want_to_read', label: 'Want to Read' },
-                        { key: 'reading', label: 'Reading' },
-                        { key: 'finished', label: 'Finished' },
-                        { key: 'did_not_finish', label: 'Did Not Finish' },
-                      ] as const
+                      ['want_to_read', 'reading', 'finished', 'did_not_finish'] as Status[]
                     )
-                      .filter((s) => s.key !== currentStatus)
+                      .filter((s) => s !== currentStatus)
                       .map((s) => (
                         <button
-                          key={s.key}
-                          onClick={() => updateStatus(s.key)}
+                          key={s}
+                          onClick={() => updateStatus(s)}
                           className="w-full text-left px-4 py-3 text-[11px] font-semibold uppercase tracking-wide text-brand-blue border-b border-gray-100 last:border-b-0 hover:bg-blue-50 transition-colors"
                         >
-                          {s.label}
+                          {statusLabel(s, log.entry_type)}
                         </button>
                       ))}
                   </div>
@@ -402,7 +397,7 @@ export default function ActivityCard({ log, allProfiles, currentUser, onRefresh,
               </div>
             ) : currentStatus ? (
               <span className={`inline-flex items-center px-2 py-0.5 text-[11px] font-semibold border uppercase tracking-wide ${STATUS_STYLES[currentStatus]}`}>
-                {STATUS_LABELS[currentStatus]}
+                {statusLabel(currentStatus, log.entry_type)}
               </span>
             ) : null}
             <span className="inline-flex items-center px-2 py-0.5 text-[11px] font-semibold border border-brand-blue bg-white text-gray-900">

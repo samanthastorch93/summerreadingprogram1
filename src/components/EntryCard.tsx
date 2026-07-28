@@ -4,11 +4,11 @@ import { supabase } from '../lib/supabase';
 import {
   timeAgo,
   formatTimeRead,
-  STATUS_LABELS,
+  statusLabel,
   entryStatusPhrase,
   countWords,
 } from '../lib/types';
-import type { ReadingEntry, Profile, BookSearchResult } from '../lib/types';
+import type { ReadingEntry, Profile, BookSearchResult, Status } from '../lib/types';
 import CommentSection from './CommentSection';
 import ConfirmDialog from './ConfirmDialog';
 import AvatarIcon from './AvatarIcon';
@@ -282,7 +282,7 @@ export default function EntryCard({
 
   if (!book) return null;
 
-  const phrase = entryStatusPhrase(entry.status);
+  const phrase = entryStatusPhrase(entry.status, entry.entry_type);
 
   if (isHidden) {
     return (
@@ -513,27 +513,22 @@ export default function EntryCard({
                     onClick={() => setStatusDropdownOpen((o) => !o)}
                     className={`inline-flex items-center gap-1 px-2 py-0.5 text-[11px] font-semibold border uppercase tracking-wide transition-colors ${STATUS_STYLES[entry.status]}`}
                   >
-                    {STATUS_LABELS[entry.status]}
+                    {statusLabel(entry.status, entry.entry_type)}
                     <ChevronDown className="w-3 h-3 shrink-0" />
                   </button>
                   {statusDropdownOpen && (
                     <div className="absolute left-0 top-full mt-0.5 z-50 bg-white border-2 border-brand-blue shadow-[4px_4px_0px_0px_rgba(15,0,227,1)] min-w-[160px]">
                       {(
-                        [
-                          { key: 'want_to_read', label: 'Want to Read' },
-                          { key: 'reading', label: 'Reading' },
-                          { key: 'finished', label: 'Finished' },
-                          { key: 'did_not_finish', label: 'Did Not Finish' },
-                        ] as const
+                        ['want_to_read', 'reading', 'finished', 'did_not_finish'] as Status[]
                       )
-                        .filter((s) => s.key !== entry.status)
+                        .filter((s) => s !== entry.status)
                         .map((s) => (
                           <button
-                            key={s.key}
-                            onClick={() => updateStatus(s.key)}
+                            key={s}
+                            onClick={() => updateStatus(s)}
                             className="w-full text-left px-4 py-3 text-[11px] font-semibold uppercase tracking-wide text-brand-blue border-b border-gray-100 last:border-b-0 hover:bg-blue-50 transition-colors"
                           >
-                            {s.label}
+                            {statusLabel(s, entry.entry_type)}
                           </button>
                         ))}
                     </div>
@@ -541,7 +536,7 @@ export default function EntryCard({
                 </div>
               ) : (
                 <span className={`inline-flex items-center px-2 py-0.5 text-[11px] font-semibold border uppercase tracking-wide ${STATUS_STYLES[entry.status]}`}>
-                  {STATUS_LABELS[entry.status]}
+                  {statusLabel(entry.status, entry.entry_type)}
                 </span>
               )}
               <span className="inline-flex items-center px-2 py-0.5 text-[11px] font-semibold border border-brand-blue bg-white text-gray-900">
@@ -565,7 +560,7 @@ export default function EntryCard({
               )}
               {entry.time_read_minutes > 0 && (
                 <span className="text-[11px] text-gray-400">
-                  {formatTimeRead(entry.time_read_minutes)} read
+                  {formatTimeRead(entry.time_read_minutes)} {isAudiobook ? 'listened' : 'read'}
                 </span>
               )}
               {canAddTime && !addingTime && (

@@ -79,7 +79,7 @@ export default function StatsSection({ userId, selectedUserId, selectedUserName,
   const firstName = selectedUserName?.split(' ')[0] ?? '';
 
   const cards: { value: string; label: string; sub: string; filter: Status | null }[] = [
-    { value: stats.totalMinutes > 0 ? formatTimeRead(stats.totalMinutes) : '—', label: 'TIME READ', sub: 'total logged', filter: null },
+    { value: stats.totalMinutes > 0 ? formatTimeRead(stats.totalMinutes) : '—', label: 'TIME LOGGED', sub: 'total logged', filter: null },
     { value: String(stats.wantToReadCount), label: 'WANT TO READ', sub: 'on list', filter: 'want_to_read' },
     { value: String(stats.inProgressCount), label: 'IN PROGRESS', sub: 'titles', filter: 'reading' },
     { value: String(stats.finishedCount), label: 'FINISHED', sub: 'titles', filter: 'finished' },
