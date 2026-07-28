@@ -358,7 +358,7 @@ export default function EntryCard({
         <div className="flex gap-3">
           {/* Cover / icon */}
           <div className="shrink-0 relative">
-            {book.cover_url && !isAudiobook ? (
+            {book.cover_url ? (
               <button
                 type="button"
                 onClick={() => setSynopsisOpen(true)}
