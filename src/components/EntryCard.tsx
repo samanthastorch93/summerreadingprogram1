@@ -351,6 +351,119 @@ export default function EntryCard({
           <span className="text-gray-500">{phrase}</span>
         </p>
         <span className="text-xs text-gray-400 shrink-0">{timeAgo(entry.created_at)}</span>
+
+        {/* Ellipsis menu — own entries or moderator */}
+        {(isOwn || isMod) && (
+          <div className="relative shrink-0" ref={menuRef}>
+            <button
+              onClick={() => setMenuOpen((o) => !o)}
+              className="text-gray-400 hover:text-gray-900 transition-colors p-0.5"
+              aria-label="Entry options"
+            >
+              <MoreHorizontal className="w-4 h-4" />
+            </button>
+
+            {menuOpen && (
+              <div className="absolute right-0 top-6 z-50 bg-white border-2 border-brand-blue shadow-[4px_4px_0px_0px_rgba(15,0,227,1)] min-w-[200px]">
+                {isOwn && (
+                  <button
+                    onClick={() => { setMenuOpen(false); onEdit?.(entry); }}
+                    className="w-full text-left px-4 py-3 text-[11px] font-semibold uppercase tracking-wide text-brand-blue border-b-2 border-brand-blue hover:bg-blue-50 transition-colors"
+                  >
+                    Edit Entry
+                  </button>
+                )}
+                <button
+                  onClick={toggleHide}
+                  className="w-full text-left px-4 py-3 text-[11px] font-semibold uppercase tracking-wide text-gray-600 border-b-2 border-brand-blue hover:bg-gray-50 transition-colors"
+                >
+                  {isHidden ? 'Unhide Entry' : 'Hide Entry'}
+                </button>
+                <button
+                  onClick={() => { setMenuOpen(false); setConfirmDelete(true); }}
+                  className="w-full text-left px-4 py-3 text-[11px] font-semibold uppercase tracking-wide text-brand-red border-b-2 border-brand-blue hover:bg-red-50 transition-colors"
+                >
+                  Delete Entry
+                </button>
+                {!isAudiobook && (
+                  <a
+                    href={book.bookshop_url ?? `https://bookshop.org/beta-search?keywords=${encodeURIComponent(book.title + ' ' + book.author)}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    onClick={() => setMenuOpen(false)}
+                    className="block px-4 py-3 text-[11px] font-semibold uppercase tracking-wide text-brand-blue hover:bg-blue-50 transition-colors"
+                  >
+                    Buy on Bookshop.org
+                  </a>
+                )}
+                {isAudiobook && (
+                  <a
+                    href={book.bookshop_url ?? `https://libro.fm/search?q=${encodeURIComponent(book.title + ' ' + book.author)}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    onClick={() => setMenuOpen(false)}
+                    className="block px-4 py-3 text-[11px] font-semibold uppercase tracking-wide text-brand-blue hover:bg-blue-50 transition-colors"
+                  >
+                    Listen on Libro.fm
+                  </a>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Hide menu for other users' entries */}
+        {!isOwn && !isMod && (
+          <div className="relative shrink-0" ref={hideMenuRef}>
+            <button
+              onClick={() => setHideMenuOpen((o) => !o)}
+              className="text-gray-400 hover:text-gray-900 transition-colors p-0.5"
+              aria-label="Entry options"
+            >
+              <MoreHorizontal className="w-4 h-4" />
+            </button>
+            {hideMenuOpen && (
+              <div className="absolute right-0 top-6 z-50 bg-white border-2 border-brand-blue shadow-[4px_4px_0px_0px_rgba(15,0,227,1)] min-w-[180px]">
+                {!isAudiobook && onLogBook && (
+                  <button
+                    onClick={() => { setHideMenuOpen(false); onLogBook({
+                      title: book.title,
+                      author: book.author,
+                      isbn: book.isbn,
+                      coverUrl: book.cover_url,
+                      bookshopUrl: book.bookshop_url ?? `https://bookshop.org/beta-search?keywords=${encodeURIComponent(book.title + ' ' + book.author)}`,
+                      description: book.description,
+                    }); }}
+                    className="w-full text-left px-4 py-3 text-[11px] font-semibold uppercase tracking-wide text-brand-blue border-b-2 border-brand-blue hover:bg-blue-50 transition-colors"
+                  >
+                    Log This Book
+                  </button>
+                )}
+                {isAudiobook && onLogBook && (
+                  <button
+                    onClick={() => { setHideMenuOpen(false); onLogBook({
+                      title: book.title,
+                      author: book.author,
+                      isbn: book.isbn,
+                      coverUrl: book.cover_url,
+                      bookshopUrl: book.bookshop_url ?? `https://libro.fm/search?q=${encodeURIComponent(book.title + ' ' + book.author)}`,
+                      description: book.description,
+                    }); }}
+                    className="w-full text-left px-4 py-3 text-[11px] font-semibold uppercase tracking-wide text-brand-blue border-b-2 border-brand-blue hover:bg-blue-50 transition-colors"
+                  >
+                    Log This Audiobook
+                  </button>
+                )}
+                <button
+                  onClick={toggleHide}
+                  className="w-full text-left px-4 py-3 text-[11px] font-semibold uppercase tracking-wide text-gray-600 hover:bg-gray-50 transition-colors"
+                >
+                  {isHidden ? 'Unhide Entry' : 'Hide Entry'}
+                </button>
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Main content */}
@@ -418,121 +531,6 @@ export default function EntryCard({
                 )}
                 <p className="text-sm text-gray-500">{book.author}</p>
               </div>
-
-              {/* Ellipsis menu — own entries or moderator */}
-              {(isOwn || isMod) && (
-                <div className="relative shrink-0 mt-0.5" ref={menuRef}>
-                  <button
-                    onClick={() => setMenuOpen((o) => !o)}
-                    className="text-gray-400 hover:text-gray-900 transition-colors p-0.5"
-                    aria-label="Entry options"
-                  >
-                    <MoreHorizontal className="w-4 h-4" />
-                  </button>
-
-                  {menuOpen && (
-                    <div className="absolute right-0 top-6 z-50 bg-white border-2 border-brand-blue shadow-[4px_4px_0px_0px_rgba(15,0,227,1)] min-w-[200px]">
-                      {isOwn && (
-                        <>
-                          <button
-                            onClick={() => { setMenuOpen(false); onEdit?.(entry); }}
-                            className="w-full text-left px-4 py-3 text-[11px] font-semibold uppercase tracking-wide text-brand-blue border-b-2 border-brand-blue hover:bg-blue-50 transition-colors"
-                          >
-                            Edit Entry
-                          </button>
-                        </>
-                      )}
-                      <button
-                        onClick={toggleHide}
-                        className="w-full text-left px-4 py-3 text-[11px] font-semibold uppercase tracking-wide text-gray-600 border-b-2 border-brand-blue hover:bg-gray-50 transition-colors"
-                      >
-                        {isHidden ? 'Unhide Entry' : 'Hide Entry'}
-                      </button>
-                      <button
-                        onClick={() => { setMenuOpen(false); setConfirmDelete(true); }}
-                        className="w-full text-left px-4 py-3 text-[11px] font-semibold uppercase tracking-wide text-brand-red border-b-2 border-brand-blue hover:bg-red-50 transition-colors"
-                      >
-                        Delete Entry
-                      </button>
-                      {!isAudiobook && (
-                        <a
-                          href={book.bookshop_url ?? `https://bookshop.org/beta-search?keywords=${encodeURIComponent(book.title + ' ' + book.author)}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          onClick={() => setMenuOpen(false)}
-                          className="block px-4 py-3 text-[11px] font-semibold uppercase tracking-wide text-brand-blue hover:bg-blue-50 transition-colors"
-                        >
-                          Buy on Bookshop.org
-                        </a>
-                      )}
-                      {isAudiobook && (
-                        <a
-                          href={book.bookshop_url ?? `https://libro.fm/search?q=${encodeURIComponent(book.title + ' ' + book.author)}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          onClick={() => setMenuOpen(false)}
-                          className="block px-4 py-3 text-[11px] font-semibold uppercase tracking-wide text-brand-blue hover:bg-blue-50 transition-colors"
-                        >
-                          Listen on Libro.fm
-                        </a>
-                      )}
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {/* Hide menu for other users' entries */}
-              {!isOwn && !isMod && (
-                <div className="relative shrink-0 mt-0.5" ref={hideMenuRef}>
-                  <button
-                    onClick={() => setHideMenuOpen((o) => !o)}
-                    className="text-gray-400 hover:text-gray-900 transition-colors p-0.5"
-                    aria-label="Entry options"
-                  >
-                    <MoreHorizontal className="w-4 h-4" />
-                  </button>
-                  {hideMenuOpen && (
-                    <div className="absolute right-0 top-6 z-50 bg-white border-2 border-brand-blue shadow-[4px_4px_0px_0px_rgba(15,0,227,1)] min-w-[180px]">
-                      {!isAudiobook && onLogBook && (
-                        <button
-                          onClick={() => { setHideMenuOpen(false); onLogBook({
-                            title: book.title,
-                            author: book.author,
-                            isbn: book.isbn,
-                            coverUrl: book.cover_url,
-                            bookshopUrl: book.bookshop_url ?? `https://bookshop.org/beta-search?keywords=${encodeURIComponent(book.title + ' ' + book.author)}`,
-                            description: book.description,
-                          }); }}
-                          className="w-full text-left px-4 py-3 text-[11px] font-semibold uppercase tracking-wide text-brand-blue border-b-2 border-brand-blue hover:bg-blue-50 transition-colors"
-                        >
-                          Log This Book
-                        </button>
-                      )}
-                      {isAudiobook && onLogBook && (
-                        <button
-                          onClick={() => { setHideMenuOpen(false); onLogBook({
-                            title: book.title,
-                            author: book.author,
-                            isbn: book.isbn,
-                            coverUrl: book.cover_url,
-                            bookshopUrl: book.bookshop_url ?? `https://libro.fm/search?q=${encodeURIComponent(book.title + ' ' + book.author)}`,
-                            description: book.description,
-                          }); }}
-                          className="w-full text-left px-4 py-3 text-[11px] font-semibold uppercase tracking-wide text-brand-blue border-b-2 border-brand-blue hover:bg-blue-50 transition-colors"
-                        >
-                          Log This Audiobook
-                        </button>
-                      )}
-                      <button
-                        onClick={toggleHide}
-                        className="w-full text-left px-4 py-3 text-[11px] font-semibold uppercase tracking-wide text-gray-600 hover:bg-gray-50 transition-colors"
-                      >
-                        {isHidden ? 'Unhide Entry' : 'Hide Entry'}
-                      </button>
-                    </div>
-                  )}
-                </div>
-              )}
             </div>
 
             {/* Badges row */}
