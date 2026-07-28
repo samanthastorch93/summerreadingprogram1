@@ -32,8 +32,12 @@ const STATUS_BTN: Record<Status, string> = {
   did_not_finish: 'border-gray-800 bg-gray-800 text-white',
 };
 
-function statusLabel(s: Status): string {
+function statusLabel(s: Status, type: EntryType): string {
   if (s === 'did_not_finish') return 'DNF';
+  if (type === 'audiobook') {
+    if (s === 'want_to_read') return 'Want to Listen';
+    if (s === 'reading') return 'Listening';
+  }
   return STATUS_LABELS[s];
 }
 
@@ -404,7 +408,7 @@ export default function LogEntryModal({ currentUser, editEntry, prefillBook, onC
                         </div>
                         <div className="shrink-0">
                           <span className="text-[10px] font-semibold uppercase px-1.5 py-0.5 border border-gray-300 text-gray-500">
-                            {STATUS_LABELS[entry.status]}
+                            {statusLabel(entry.status, entry.entry_type)}
                           </span>
                         </div>
                       </button>
@@ -475,7 +479,7 @@ export default function LogEntryModal({ currentUser, editEntry, prefillBook, onC
                             : 'border-gray-200 bg-white text-gray-400 hover:border-brand-blue hover:text-gray-900'
                         }`}
                       >
-                        {statusLabel(s)}
+                        {statusLabel(s, entryType)}
                       </button>
                     ))}
                   </div>
@@ -486,7 +490,7 @@ export default function LogEntryModal({ currentUser, editEntry, prefillBook, onC
                   <textarea
                     value={logNote}
                     onChange={(e) => setLogNote(e.target.value)}
-                    placeholder="What did you read today?"
+                    placeholder="{entryType === 'audiobook' ? 'What did you listen to today?' : 'What did you read today?'}"
                     rows={2}
                     className="w-full px-3 py-2.5 border-2 border-brand-blue text-sm font-medium focus:outline-none focus:border-brand-blue resize-none"
                   />
@@ -794,7 +798,7 @@ export default function LogEntryModal({ currentUser, editEntry, prefillBook, onC
               {/* Time read */}
               <div>
                 <p className={`${labelClass} block`}>
-                  {entryType === 'audiobook' ? 'Time Listened' : 'Time Read'} <span className="font-normal normal-case">(optional)</span>
+                 {entryType === 'audiobook' ? 'Time Listened' : 'Time Read'} <span className="font-normal normal-case">(optional)</span>
                 </p>
                 <div className="flex gap-3">
                   <div className="relative flex-1">
