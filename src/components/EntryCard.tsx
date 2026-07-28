@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { MessageCircle, BookOpen, Headphones, MoreHorizontal, PlusCircle, X, Loader2, Camera, EyeOff, Eye, ChevronDown, Link, Plus } from 'lucide-react';
+import { MessageCircle, BookOpen, Headphones, MoreHorizontal, PlusCircle, X, Loader2, Camera, EyeOff, Eye, ChevronDown, Link } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import {
   timeAgo,
@@ -493,6 +493,36 @@ export default function EntryCard({
                   </button>
                   {hideMenuOpen && (
                     <div className="absolute right-0 top-6 z-50 bg-white border-2 border-brand-blue shadow-[4px_4px_0px_0px_rgba(15,0,227,1)] min-w-[180px]">
+                      {!isAudiobook && onLogBook && (
+                        <button
+                          onClick={() => { setHideMenuOpen(false); onLogBook({
+                            title: book.title,
+                            author: book.author,
+                            isbn: book.isbn,
+                            coverUrl: book.cover_url,
+                            bookshopUrl: book.bookshop_url ?? `https://bookshop.org/beta-search?keywords=${encodeURIComponent(book.title + ' ' + book.author)}`,
+                            description: book.description,
+                          }); }}
+                          className="w-full text-left px-4 py-3 text-[11px] font-semibold uppercase tracking-wide text-brand-blue border-b-2 border-brand-blue hover:bg-blue-50 transition-colors"
+                        >
+                          Log This Book
+                        </button>
+                      )}
+                      {isAudiobook && onLogBook && (
+                        <button
+                          onClick={() => { setHideMenuOpen(false); onLogBook({
+                            title: book.title,
+                            author: book.author,
+                            isbn: book.isbn,
+                            coverUrl: book.cover_url,
+                            bookshopUrl: book.bookshop_url ?? `https://libro.fm/search?q=${encodeURIComponent(book.title + ' ' + book.author)}`,
+                            description: book.description,
+                          }); }}
+                          className="w-full text-left px-4 py-3 text-[11px] font-semibold uppercase tracking-wide text-brand-blue border-b-2 border-brand-blue hover:bg-blue-50 transition-colors"
+                        >
+                          Log This Audiobook
+                        </button>
+                      )}
                       <button
                         onClick={toggleHide}
                         className="w-full text-left px-4 py-3 text-[11px] font-semibold uppercase tracking-wide text-gray-600 hover:bg-gray-50 transition-colors"
@@ -542,22 +572,7 @@ export default function EntryCard({
               <span className="inline-flex items-center px-2 py-0.5 text-[11px] font-semibold border border-brand-blue bg-white text-gray-900">
                 {isAudiobook ? 'Audiobook' : 'Book'}
               </span>
-              {!isOwn && !isAudiobook && onLogBook && (
-                <button
-                  onClick={() => onLogBook({
-                    title: book.title,
-                    author: book.author,
-                    isbn: book.isbn,
-                    coverUrl: book.cover_url,
-                    bookshopUrl: book.bookshop_url ?? `https://bookshop.org/beta-search?keywords=${encodeURIComponent(book.title + ' ' + book.author)}`,
-                    description: book.description,
-                  })}
-                  className="inline-flex items-center gap-1 px-2 py-0.5 text-[11px] font-semibold border border-brand-red text-brand-red bg-white hover:bg-red-50 transition-colors"
-                >
-                  <Plus className="w-3 h-3" strokeWidth={3} />
-                  Log
-                </button>
-              )}
+
               {entry.time_read_minutes > 0 && (
                 <span className="text-[11px] text-gray-400">
                   {formatTimeRead(entry.time_read_minutes)} {isAudiobook ? 'listened' : 'read'}

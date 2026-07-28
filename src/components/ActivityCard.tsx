@@ -265,7 +265,7 @@ export default function ActivityCard({ log, allProfiles, currentUser, onRefresh,
           {' '}
           {isFinishedEvent ? (
             <>
-              <span className="text-gray-500">finished {isAudiobook ? 'listening' : 'reading'}</span>
+              <span className="text-gray-500">{isAudiobook ? 'finished listening to' : 'finished reading'}</span>
             </>
           ) : (
             <>
@@ -278,7 +278,7 @@ export default function ActivityCard({ log, allProfiles, currentUser, onRefresh,
                   <span className="text-gray-500">and</span>
                   {' '}
                   <span className="text-gray-500">
-                    finished
+                    {isAudiobook ? 'finished listening to' : 'finished reading'}
                   </span>
                 </>
               )}

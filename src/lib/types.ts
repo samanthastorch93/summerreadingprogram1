@@ -125,11 +125,16 @@ export function statusLabel(status: Status, entryType?: EntryType): string {
 }
 
 export function entryStatusPhrase(status: Status, entryType?: EntryType): string {
-  const verb = entryType === 'audiobook' ? 'listening' : 'reading';
-  if (status === 'reading') return `is ${verb}`;
-  if (status === 'finished') return `finished ${verb}`;
+  if (entryType === 'audiobook') {
+    if (status === 'reading') return 'is listening to';
+    if (status === 'finished') return 'finished listening to';
+    if (status === 'did_not_finish') return 'did not finish';
+    return 'wants to listen to';
+  }
+  if (status === 'reading') return 'is reading';
+  if (status === 'finished') return 'finished reading';
   if (status === 'did_not_finish') return 'did not finish';
-  return entryType === 'audiobook' ? 'wants to listen' : 'wants to read';
+  return 'wants to read';
 }
 
 export function formatTimeRead(minutes: number): string {
