@@ -236,6 +236,7 @@ export default function Feed({ currentUser, allProfiles, selectedUserId, refresh
                       currentUser={currentUser}
                       onRefresh={onRefresh}
                       onSelectUser={onSelectUser}
+                      onLogBook={onLogBook}
                     />
                   );
                 }

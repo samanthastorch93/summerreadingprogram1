@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import { Clock, BookOpen, MoreHorizontal, Loader2, Check, X, Camera, Trash2, MessageCircle, ChevronDown, PlusCircle, Link } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { timeAgo, formatTimeRead, statusLabel, countWords } from '../lib/types';
-import type { TimeLog, Profile, Status } from '../lib/types';
+import type { TimeLog, Profile, Status, BookSearchResult } from '../lib/types';
 import ConfirmDialog from './ConfirmDialog';
 import CommentSection from './CommentSection';
 import AvatarIcon from './AvatarIcon';
@@ -22,9 +22,10 @@ interface Props {
   currentUser: Profile;
   onRefresh: () => void;
   onSelectUser: (userId: string) => void;
+  onLogBook?: (book: BookSearchResult) => void;
 }
 
-export default function ActivityCard({ log, allProfiles, currentUser, onRefresh, onSelectUser }: Props) {
+export default function ActivityCard({ log, allProfiles, currentUser, onRefresh, onSelectUser, onLogBook }: Props) {
   const profile = allProfiles.find((p) => p.id === log.user_id) ?? log.profile;
   const book = log.book;
   const isFinishedEvent = log.minutes_added === 0 && log.status_override === 'finished';
@@ -297,38 +298,55 @@ export default function ActivityCard({ log, allProfiles, currentUser, onRefresh,
         </p>
         <div className="flex items-center gap-1 shrink-0">
           <span className="text-xs text-gray-400">{timeAgo(log.created_at)}</span>
-          {isOwn && (
-            <div className="relative" ref={menuRef}>
-              <button
-                onClick={() => setMenuOpen((o) => !o)}
-                disabled={deleting}
-                className="p-0.5 text-gray-400 hover:text-gray-900 transition-colors"
-                aria-label="Time log options"
-              >
-                {deleting
-                  ? <Loader2 className="w-4 h-4 animate-spin" />
-                  : <MoreHorizontal className="w-4 h-4" />}
-              </button>
-              {menuOpen && (
-                <div className="absolute right-0 top-6 z-50 bg-white border-2 border-brand-blue shadow-[4px_4px_0px_0px_rgba(15,0,227,1)] min-w-[160px]">
-                  {!isFinishedEvent && (
-                    <button
-                      onClick={startEdit}
-                      className="w-full text-left px-4 py-3 text-[11px] font-semibold uppercase tracking-wide text-brand-blue border-b-2 border-brand-blue hover:bg-blue-50 transition-colors"
-                    >
-                      Edit Log
-                    </button>
-                  )}
+          <div className="relative" ref={menuRef}>
+            <button
+              onClick={() => setMenuOpen((o) => !o)}
+              disabled={deleting}
+              className="p-0.5 text-gray-400 hover:text-gray-900 transition-colors"
+              aria-label="Time log options"
+            >
+              {deleting
+                ? <Loader2 className="w-4 h-4 animate-spin" />
+                : <MoreHorizontal className="w-4 h-4" />}
+            </button>
+            {menuOpen && (
+              <div className="absolute right-0 top-6 z-50 bg-white border-2 border-brand-blue shadow-[4px_4px_0px_0px_rgba(15,0,227,1)] min-w-[180px]">
+                {!isOwn && onLogBook && book && (
+                  <button
+                    onClick={() => { setMenuOpen(false); onLogBook({
+                      title: book.title,
+                      author: book.author,
+                      isbn: book.isbn,
+                      coverUrl: book.cover_url,
+                      bookshopUrl: isAudiobook
+                        ? (book.bookshop_url ?? `https://libro.fm/search?q=${encodeURIComponent(book.title + ' ' + book.author)}`)
+                        : (book.bookshop_url ?? `https://bookshop.org/beta-search?keywords=${encodeURIComponent(book.title + ' ' + book.author)}`),
+                      description: book.description,
+                    }); }}
+                    className="w-full text-left px-4 py-3 text-[11px] font-semibold uppercase tracking-wide text-brand-blue border-b-2 border-brand-blue hover:bg-blue-50 transition-colors"
+                  >
+                    {isAudiobook ? 'Log This Audiobook' : 'Log This Book'}
+                  </button>
+                )}
+                {isOwn && !isFinishedEvent && (
+                  <button
+                    onClick={startEdit}
+                    className="w-full text-left px-4 py-3 text-[11px] font-semibold uppercase tracking-wide text-brand-blue border-b-2 border-brand-blue hover:bg-blue-50 transition-colors"
+                  >
+                    Edit Log
+                  </button>
+                )}
+                {isOwn && (
                   <button
                     onClick={() => { setMenuOpen(false); setConfirmDelete(true); }}
                     className="w-full text-left px-4 py-3 text-[11px] font-semibold uppercase tracking-wide text-brand-red hover:bg-red-50 transition-colors"
                   >
                     Delete Log
                   </button>
-                </div>
-              )}
-            </div>
-          )}
+                )}
+              </div>
+            )}
+          </div>
         </div>
       </div>
 

@@ -365,6 +365,22 @@ export default function EntryCard({
 
             {menuOpen && (
               <div className="absolute right-0 top-6 z-50 bg-white border-2 border-brand-blue shadow-[4px_4px_0px_0px_rgba(15,0,227,1)] min-w-[200px]">
+                {!isOwn && !isAudiobook && onLogBook && (
+                  <button
+                    onClick={() => { setMenuOpen(false); onLogBook({ title: book.title, author: book.author, isbn: book.isbn, coverUrl: book.cover_url, bookshopUrl: book.bookshop_url ?? `https://bookshop.org/beta-search?keywords=${encodeURIComponent(book.title + ' ' + book.author)}`, description: book.description }); }}
+                    className="w-full text-left px-4 py-3 text-[11px] font-semibold uppercase tracking-wide text-brand-blue border-b-2 border-brand-blue hover:bg-blue-50 transition-colors"
+                  >
+                    Log This Book
+                  </button>
+                )}
+                {!isOwn && isAudiobook && onLogBook && (
+                  <button
+                    onClick={() => { setMenuOpen(false); onLogBook({ title: book.title, author: book.author, isbn: book.isbn, coverUrl: book.cover_url, bookshopUrl: book.bookshop_url ?? `https://libro.fm/search?q=${encodeURIComponent(book.title + ' ' + book.author)}`, description: book.description }); }}
+                    className="w-full text-left px-4 py-3 text-[11px] font-semibold uppercase tracking-wide text-brand-blue border-b-2 border-brand-blue hover:bg-blue-50 transition-colors"
+                  >
+                    Log This Audiobook
+                  </button>
+                )}
                 {isOwn && (
                   <button
                     onClick={() => { setMenuOpen(false); onEdit?.(entry); }}
@@ -406,22 +422,6 @@ export default function EntryCard({
                   >
                     Listen on Libro.fm
                   </a>
-                )}
-                {!isOwn && !isAudiobook && onLogBook && (
-                  <button
-                    onClick={() => { setMenuOpen(false); onLogBook({ title: book.title, author: book.author, isbn: book.isbn, coverUrl: book.cover_url, bookshopUrl: book.bookshop_url ?? `https://bookshop.org/beta-search?keywords=${encodeURIComponent(book.title + ' ' + book.author)}`, description: book.description }); }}
-                    className="w-full text-left px-4 py-3 text-[11px] font-semibold uppercase tracking-wide text-brand-blue hover:bg-blue-50 transition-colors"
-                  >
-                    Log This Book
-                  </button>
-                )}
-                {!isOwn && isAudiobook && onLogBook && (
-                  <button
-                    onClick={() => { setMenuOpen(false); onLogBook({ title: book.title, author: book.author, isbn: book.isbn, coverUrl: book.cover_url, bookshopUrl: book.bookshop_url ?? `https://libro.fm/search?q=${encodeURIComponent(book.title + ' ' + book.author)}`, description: book.description }); }}
-                    className="w-full text-left px-4 py-3 text-[11px] font-semibold uppercase tracking-wide text-brand-blue hover:bg-blue-50 transition-colors"
-                  >
-                    Log This Audiobook
-                  </button>
                 )}
               </div>
             )}
