@@ -138,12 +138,21 @@ export default function ActivityCard({ log, allProfiles, currentUser, onRefresh,
   }
 
   async function handleSave() {
-    const mins = parseInt(editMinutes || '0', 10);
-    if (!mins || mins <= 0) return;
+    if (!isFinishedEvent) {
+      const mins = parseInt(editMinutes || '0', 10);
+      if (!mins || mins <= 0) return;
+    }
     setSaving(true);
+    const update: Record<string, unknown> = {
+      note: editNote.trim() || null,
+      media_url: editMediaUrl,
+    };
+    if (!isFinishedEvent) {
+      update.minutes_added = parseInt(editMinutes || '0', 10);
+    }
     await supabase
       .from('time_logs')
-      .update({ minutes_added: mins, note: editNote.trim() || null, media_url: editMediaUrl })
+      .update(update)
       .eq('id', log.id);
     setSaving(false);
     setEditing(false);
@@ -328,7 +337,7 @@ export default function ActivityCard({ log, allProfiles, currentUser, onRefresh,
                     {isAudiobook ? 'Log This Audiobook' : 'Log This Book'}
                   </button>
                 )}
-                {isOwn && !isFinishedEvent && (
+                {isOwn && (
                   <button
                     onClick={startEdit}
                     className="w-full text-left px-4 py-3 text-[11px] font-semibold uppercase tracking-wide text-brand-blue border-b-2 border-brand-blue hover:bg-blue-50 transition-colors"
@@ -572,16 +581,18 @@ export default function ActivityCard({ log, allProfiles, currentUser, onRefresh,
         <div className="px-4 pb-4 space-y-2">
           {/* Minutes + note row */}
           <div className="flex items-center gap-2">
-            <div className="relative">
-              <input
-                type="number"
-                min="1"
-                value={editMinutes}
-                onChange={(e) => setEditMinutes(e.target.value)}
-                className="w-20 px-2 py-1.5 pr-8 border-2 border-brand-blue text-sm focus:outline-none text-center"
-              />
-              <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-gray-400 pointer-events-none">min</span>
-            </div>
+            {!isFinishedEvent && (
+              <div className="relative">
+                <input
+                  type="number"
+                  min="1"
+                  value={editMinutes}
+                  onChange={(e) => setEditMinutes(e.target.value)}
+                  className="w-20 px-2 py-1.5 pr-8 border-2 border-brand-blue text-sm focus:outline-none text-center"
+                />
+                <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-gray-400 pointer-events-none">min</span>
+              </div>
+            )}
             <input
               type="text"
               value={editNote}
@@ -592,7 +603,7 @@ export default function ActivityCard({ log, allProfiles, currentUser, onRefresh,
             />
             <button
               onClick={handleSave}
-              disabled={saving || !editMinutes || parseInt(editMinutes) <= 0}
+              disabled={saving || (!isFinishedEvent && (!editMinutes || parseInt(editMinutes) <= 0))}
               className="p-1.5 bg-brand-blue text-white hover:bg-blue-800 transition-colors disabled:opacity-50"
             >
               {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
