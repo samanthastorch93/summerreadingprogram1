@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
-import { formatTimeRead } from '../lib/types';
+
 import type { Status } from '../lib/types';
 
 interface Stats {
@@ -82,7 +82,6 @@ export default function StatsSection({ userId, selectedUserId, selectedUserName,
     { value: String(stats.wantToReadCount), label: 'WANT TO READ', sub: 'on list', filter: 'want_to_read' },
     { value: String(stats.inProgressCount), label: 'IN PROGRESS', sub: 'titles', filter: 'reading' },
     { value: String(stats.finishedCount), label: 'FINISHED', sub: 'titles', filter: 'finished' },
-    { value: stats.totalMinutes > 0 ? formatTimeRead(stats.totalMinutes) : '—', label: 'TIME LOGGED', sub: 'total logged', filter: null },
   ];
 
   return (
@@ -117,7 +116,7 @@ export default function StatsSection({ userId, selectedUserId, selectedUserName,
           )}
         </div>
 
-        <div className="grid grid-cols-4 gap-0 border-2 border-brand-blue">
+        <div className="grid grid-cols-3 gap-0 border-2 border-brand-blue">
           {cards.map(({ value, label, sub, filter }, i) => {
             const isActive = statusFilter === filter && filter !== null;
             return (
