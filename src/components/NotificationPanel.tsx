@@ -19,7 +19,12 @@ export default function NotificationPanel({ currentUserId, allProfiles, onClose,
   const profileMap = new Map(allProfiles.map((p) => [p.id, p]));
 
   useEffect(() => {
-    loadNotifications();
+    async function openNotifications() {
+      await loadNotifications();
+      await markAllRead();
+    }
+
+    openNotifications();
   }, []);
 
   async function loadNotifications() {
