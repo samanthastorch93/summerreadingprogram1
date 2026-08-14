@@ -25,7 +25,7 @@ export default function NotificationPanel({ currentUserId, allProfiles, onClose,
   async function loadNotifications() {
     const { data } = await supabase
       .from('notifications')
-      .select('*, comments(content)')
+      .select('*, comments(content), reading_entries(note), time_logs(note)')
       .eq('recipient_id', currentUserId)
       .order('created_at', { ascending: false })
       .limit(40);
@@ -131,7 +131,9 @@ export default function NotificationPanel({ currentUserId, allProfiles, onClose,
                 const sender = profileMap.get(n.sender_user_id ?? '');
                 const preview = n.comment
                   ? (n.comment as any).content?.slice(0, 60)
-                  : null;
+                  : (n as any).reading_entries?.note?.slice(0, 60)
+                  ?? (n as any).time_logs?.note?.slice(0, 60)
+                  ?? null;
 
                 return (
                   <button
@@ -165,7 +167,7 @@ export default function NotificationPanel({ currentUserId, allProfiles, onClose,
                           ? 'liked your reading entry'
                           : n.type === 'log_like'
                           ? 'liked your reading log'
-                          : 'mentioned you in a comment'}
+                          : 'mentioned you in a post'}
                       </p>
                       {preview && (
                         <p className="text-xs text-gray-500 mt-0.5 truncate">&ldquo;{preview}&rdquo;</p>

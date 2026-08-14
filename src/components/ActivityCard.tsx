@@ -8,6 +8,9 @@ import CommentSection from './CommentSection';
 import AvatarIcon from './AvatarIcon';
 import BookSynopsisModal from './BookSynopsisModal';
 import LikeButton from './LikeButton';
+import MentionTextarea from './MentionTextarea';
+import NoteContent from './NoteContent';
+import { sendMentionNotifications } from '../lib/mentions';
 
 const STATUS_STYLES: Record<string, string> = {
   want_to_read: 'bg-brand-yellow text-gray-900 border-brand-blue',
@@ -154,6 +157,9 @@ export default function ActivityCard({ log, allProfiles, currentUser, onRefresh,
       .from('time_logs')
       .update(update)
       .eq('id', log.id);
+    if (editNote.trim()) {
+      await sendMentionNotifications(editNote, allProfiles, currentUser.id, log.entry_id ?? null, log.id, null);
+    }
     setSaving(false);
     setEditing(false);
     onRefresh();
@@ -190,13 +196,16 @@ export default function ActivityCard({ log, allProfiles, currentUser, onRefresh,
     if (!mins || mins <= 0 || mins > 600) return;
     if (countWords(addNote) > 150) return;
     setSavingTime(true);
-    await supabase.from('time_logs').insert({
+    const { data: newLog } = await supabase.from('time_logs').insert({
       entry_id: log.entry_id,
       book_id: log.book_id,
       minutes_added: mins,
       note: addNote.trim() || null,
       media_url: addNoteMediaUrl,
-    });
+    }).select('id').single();
+    if (addNote.trim() && newLog?.id) {
+      await sendMentionNotifications(addNote, allProfiles, currentUser.id, log.entry_id ?? null, newLog.id, null);
+    }
     setAddingTime(false);
     setAddMinutes('');
     setAddNote('');
@@ -391,7 +400,12 @@ export default function ActivityCard({ log, allProfiles, currentUser, onRefresh,
           <p className="font-semibold text-gray-900 text-sm leading-snug truncate">{book?.title ?? 'Unknown Book'}</p>
           <p className="text-xs text-gray-500 truncate">{book?.author}</p>
           {!editing && log.note && (
-            <p className="text-sm text-gray-700 mt-3 leading-relaxed">{log.note}</p>
+            <NoteContent
+              text={log.note}
+              allProfiles={allProfiles}
+              onSelectUser={onSelectUser}
+              className="text-sm text-gray-700 mt-3 leading-relaxed"
+            />
           )}
           {/* Badges row */}
           <div className="flex items-center gap-1.5 mt-2 flex-wrap">
@@ -479,12 +493,14 @@ export default function ActivityCard({ log, allProfiles, currentUser, onRefresh,
             </div>
             <div className="flex-1 flex flex-col relative">
               <div className="flex items-center border-2 border-brand-blue bg-white">
-                <input
-                  type="text"
+                <MentionTextarea
                   value={addNote}
-                  onChange={(e) => setAddNote(e.target.value)}
-                  placeholder="Optional note…"
-                  className="flex-1 px-3 py-1.5 text-sm focus:outline-none bg-transparent"
+                  onChange={setAddNote}
+                  allProfiles={allProfiles}
+                  currentUserId={currentUser.id}
+                  placeholder="Optional note… use @ to tag someone"
+                  className="flex-1 px-3 py-1.5 text-sm focus:outline-none bg-transparent resize-none border-0"
+                  rows={1}
                   onKeyDown={(e) => { if (e.key === 'Enter') handleLogTime(); }}
                 />
                 <button
@@ -593,12 +609,14 @@ export default function ActivityCard({ log, allProfiles, currentUser, onRefresh,
                 <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-gray-400 pointer-events-none">min</span>
               </div>
             )}
-            <input
-              type="text"
+            <MentionTextarea
               value={editNote}
-              onChange={(e) => setEditNote(e.target.value)}
-              placeholder="Note…"
-              className="flex-1 px-3 py-1.5 border-2 border-brand-blue text-sm focus:outline-none"
+              onChange={setEditNote}
+              allProfiles={allProfiles}
+              currentUserId={currentUser.id}
+              placeholder="Note… use @ to tag someone"
+              className="flex-1 px-3 py-1.5 border-2 border-brand-blue text-sm focus:outline-none resize-none"
+              rows={1}
               onKeyDown={(e) => { if (e.key === 'Enter') handleSave(); }}
             />
             <button

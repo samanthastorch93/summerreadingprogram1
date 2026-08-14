@@ -153,6 +153,7 @@ export default function App() {
       {(showLogModal || editEntry) && (
         <LogEntryModal
           currentUser={profile}
+          allProfiles={allProfiles}
           editEntry={editEntry ?? undefined}
           prefillBook={prefillBook ?? undefined}
           onClose={() => { setShowLogModal(false); setEditEntry(null); setPrefillBook(null); }}

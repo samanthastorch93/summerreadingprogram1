@@ -14,6 +14,9 @@ import ConfirmDialog from './ConfirmDialog';
 import AvatarIcon from './AvatarIcon';
 import BookSynopsisModal from './BookSynopsisModal';
 import LikeButton from './LikeButton';
+import MentionTextarea from './MentionTextarea';
+import NoteContent from './NoteContent';
+import { sendMentionNotifications } from '../lib/mentions';
 
 interface Props {
   entry: ReadingEntry;
@@ -229,13 +232,16 @@ export default function EntryCard({
     if (mins > 600) return;
     if (countWords(addNote) > 150) return;
     setSavingTime(true);
-    await supabase.from('time_logs').insert({
+    const { data: newLog } = await supabase.from('time_logs').insert({
       entry_id: entry.id,
       book_id: entry.book_id,
       minutes_added: mins,
       note: addNote.trim() || null,
       media_url: noteMediaUrl,
-    });
+    }).select('id').single();
+    if (addNote.trim() && newLog?.id) {
+      await sendMentionNotifications(addNote, allProfiles, currentUser.id, entry.id, newLog.id, null);
+    }
     setAddingTime(false);
     setAddMinutes('');
     setAddNote('');
@@ -635,12 +641,14 @@ export default function EntryCard({
               </div>
               <div className="flex-1 flex flex-col">
                 <div className="relative flex items-center border-2 border-brand-blue bg-white">
-                  <input
-                    type="text"
+                  <MentionTextarea
                     value={addNote}
-                    onChange={(e) => setAddNote(e.target.value)}
-                    placeholder="Optional note…"
-                    className="flex-1 px-3 py-1.5 text-sm focus:outline-none bg-transparent"
+                    onChange={setAddNote}
+                    allProfiles={allProfiles}
+                    currentUserId={currentUser.id}
+                    placeholder="Optional note… use @ to tag someone"
+                    className="flex-1 px-3 py-1.5 text-sm focus:outline-none bg-transparent resize-none border-0"
+                    rows={1}
                     onKeyDown={(e) => { if (e.key === 'Enter') handleLogTime(); }}
                   />
                   <button
@@ -734,7 +742,12 @@ export default function EntryCard({
 
         {/* Note */}
         {entry.note && (
-          <p className="mt-3 text-sm text-gray-700 leading-relaxed">{entry.note}</p>
+          <NoteContent
+            text={entry.note}
+            allProfiles={allProfiles}
+            onSelectUser={onSelectUser}
+            className="mt-3 text-sm text-gray-700 leading-relaxed"
+          />
         )}
       </div>
 

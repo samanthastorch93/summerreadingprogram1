@@ -4,6 +4,8 @@ import { supabase } from '../lib/supabase';
 import { statusLabel as sharedStatusLabel, formatTimeRead, countWords } from '../lib/types';
 import type { Status, EntryType, Profile, ReadingEntry } from '../lib/types';
 import BookSearch from './BookSearch';
+import MentionTextarea from './MentionTextarea';
+import { sendMentionNotifications } from '../lib/mentions';
 
 interface PrefillBook {
   title: string;
@@ -15,6 +17,7 @@ interface PrefillBook {
 
 interface Props {
   currentUser: Profile;
+  allProfiles: Profile[];
   editEntry?: ReadingEntry;
   prefillBook?: PrefillBook;
   onClose: () => void;
@@ -37,7 +40,7 @@ function statusLabel(s: Status, type: EntryType): string {
   return sharedStatusLabel(s, type);
 }
 
-export default function LogEntryModal({ currentUser, editEntry, prefillBook, onClose, onSaved }: Props) {
+export default function LogEntryModal({ currentUser, allProfiles, editEntry, prefillBook, onClose, onSaved }: Props) {
   const isEditing = !!editEntry;
   const [modalMode, setModalMode] = useState<ModalMode>('new_entry');
   const [entryType, setEntryType] = useState<EntryType>(editEntry?.entry_type ?? 'book');
@@ -244,7 +247,7 @@ export default function LogEntryModal({ currentUser, editEntry, prefillBook, onC
       bookId = newBook.id;
     }
 
-    const { error: entryErr } = await supabase.from('reading_entries').insert({
+    const { data: newEntry, error: entryErr } = await supabase.from('reading_entries').insert({
       book_id: bookId,
       entry_type: entryType,
       status,
@@ -253,9 +256,12 @@ export default function LogEntryModal({ currentUser, editEntry, prefillBook, onC
       media_url: mediaUrl,
       media_type: mediaUrl ? 'upload' : null,
       finished_at: (status === 'finished' || status === 'did_not_finish') ? new Date().toISOString() : null,
-    });
+    }).select('id').single();
 
     if (entryErr) { setError('Failed to save entry.'); setSaving(false); return; }
+    if (note.trim()) {
+      await sendMentionNotifications(note, allProfiles, currentUser.id, newEntry?.id ?? null, null, null);
+    }
     onSaved();
   }
 
@@ -283,16 +289,19 @@ export default function LogEntryModal({ currentUser, editEntry, prefillBook, onC
 
     const statusChanged = logStatusOverride && logStatusOverride !== selectedEntry.status;
 
-    const { error: logErr } = await supabase.from('time_logs').insert({
+    const { data: newLog, error: logErr } = await supabase.from('time_logs').insert({
       entry_id: selectedEntry.id,
       book_id: selectedEntry.book_id,
       minutes_added: mins,
       note: logNote.trim() || null,
       media_url: logMediaUrl,
       status_override: statusChanged ? logStatusOverride : null,
-    });
+    }).select('id').single();
 
     if (logErr) { setError('Failed to log time.'); setSaving(false); return; }
+    if (logNote.trim()) {
+      await sendMentionNotifications(logNote, allProfiles, currentUser.id, selectedEntry.id, newLog?.id ?? null, null);
+    }
 
     if (statusChanged) {
       const entryUpdate: Record<string, unknown> = { status: logStatusOverride };
@@ -483,11 +492,12 @@ export default function LogEntryModal({ currentUser, editEntry, prefillBook, onC
 
                 <div>
                   <p className={labelClass}>Note <span className="font-normal normal-case">(optional)</span></p>
-                  <textarea
+                  <MentionTextarea
                     value={logNote}
-                    onChange={(e) => setLogNote(e.target.value)}
+                    onChange={setLogNote}
+                    allProfiles={allProfiles}
+                    currentUserId={currentUser.id}
                     placeholder={entryType === 'audiobook' ? 'What did you listen to today?' : 'What did you read today?'}
-                    rows={2}
                     className="w-full px-3 py-2.5 border-2 border-brand-blue text-sm font-medium focus:outline-none focus:border-brand-blue resize-none"
                   />
                   {countWords(logNote) >= 140 && (
@@ -832,11 +842,12 @@ export default function LogEntryModal({ currentUser, editEntry, prefillBook, onC
                 <p className={`${labelClass} block`}>
                   Note <span className="font-normal normal-case">(optional)</span>
                 </p>
-                <textarea
+                <MentionTextarea
                   value={note}
-                  onChange={(e) => setNote(e.target.value)}
+                  onChange={setNote}
+                  allProfiles={allProfiles}
+                  currentUserId={currentUser.id}
                   placeholder="Thoughts, quotes, reactions…"
-                  rows={3}
                   className="w-full px-3 py-2.5 border-2 border-brand-blue text-sm font-medium focus:outline-none focus:border-brand-blue resize-none"
                 />
                 {countWords(note) >= 140 && (
