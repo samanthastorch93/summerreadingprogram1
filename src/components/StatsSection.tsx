@@ -124,7 +124,7 @@ export default function StatsSection({ userId, selectedUserId, selectedUserName,
               mode === 'following' ? 'bg-gray-900 text-white' : 'bg-white text-gray-400 hover:bg-gray-50'
             }`}
           >
-            Following
+            My Friends&rsquo; Stats
           </button>
           <button
             onClick={() => { setMode('everyone'); onFeedModeChange('everyone'); onClearSelectedUser(); }}
