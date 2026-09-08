@@ -17,6 +17,12 @@ async function fetchWithTimeout(url: string, opts: RequestInit = {}, timeoutMs =
 function mapGoogleItem(item: any): BookSearchResult | null {
   const info = item.volumeInfo;
   if (!info?.title) return null;
+  const ratingsCount = Number(info.ratingsCount) || 0;
+  const averageRating = Number(info.averageRating) || 0;
+  const popularity = Math.min(
+    1,
+    (Math.log10(ratingsCount + 1) / 5) * 0.75 + (averageRating / 5) * 0.25,
+  );
   const author = info.authors?.[0] ?? 'Unknown';
   const identifiers: any[] = info.industryIdentifiers ?? [];
   const isbn =
@@ -33,6 +39,7 @@ function mapGoogleItem(item: any): BookSearchResult | null {
     isbn,
     coverUrl,
     description: info.description ?? null,
+    popularity,
     bookshopUrl: `https://bookshop.org/beta-search?keywords=${encodeURIComponent(info.title + ' ' + author)}`,
   };
 }
@@ -42,7 +49,7 @@ async function searchGoogleBooks(titleQ: string, authorQ: string): Promise<BookS
 
   async function fetchQuery(q: string, orderBy = 'relevance'): Promise<any[]> {
     const res = await fetchWithTimeout(
-      `https://www.googleapis.com/books/v1/volumes?q=${encodeURIComponent(q)}&maxResults=10&printType=books&orderBy=${orderBy}${keyParam}`
+      `https://www.googleapis.com/books/v1/volumes?q=${encodeURIComponent(q)}&maxResults=40&printType=books&orderBy=${orderBy}${keyParam}`
     );
     if (!res.ok) throw new Error(`Google Books ${res.status}`);
     const data = await res.json();
@@ -102,7 +109,11 @@ async function searchGoogleBooks(titleQ: string, authorQ: string): Promise<BookS
 }
 
 async function searchOpenLibrary(titleQ: string, authorQ: string): Promise<BookSearchResult[]> {
-  const params = new URLSearchParams({ fields: 'title,author_name,isbn,cover_i,key', limit: '10' });
+  const params = new URLSearchParams({
+    fields: 'title,author_name,isbn,cover_i,key,ratings_average,ratings_count,want_to_read_count,readinglog_count,edition_count',
+    limit: '40',
+    sort: 'rating',
+  });
   const isRawQuery = titleQ && authorQ && titleQ === authorQ;
   if (isRawQuery) {
     params.set('q', titleQ);
@@ -121,12 +132,21 @@ async function searchOpenLibrary(titleQ: string, authorQ: string): Promise<BookS
       const isbn = d.isbn?.[0] ?? null;
       const coverId = d.cover_i ?? null;
       const coverUrl = coverId ? `https://covers.openlibrary.org/b/id/${coverId}-M.jpg` : null;
+      const ratingsCount = Number(d.ratings_count) || 0;
+      const wantToReadCount = Number(d.want_to_read_count) || 0;
+      const readingLogCount = Number(d.readinglog_count) || 0;
+      const popularity = Math.min(
+        1,
+        (Math.log10(ratingsCount + wantToReadCount + readingLogCount + 1) / 6) * 0.8
+          + ((Number(d.ratings_average) || 0) / 5) * 0.2,
+      );
       return {
         title: d.title,
         author,
         isbn,
         coverUrl,
         description: null,
+        popularity,
         bookshopUrl: `https://bookshop.org/beta-search?keywords=${encodeURIComponent(d.title + ' ' + author)}`,
       };
     });
@@ -190,8 +210,8 @@ export function rankResults(results: BookSearchResult[], titleQ: string, authorQ
     const aAuthor = authorMatchScore(aq, a.author);
     const bAuthor = authorMatchScore(aq, b.author);
     // Title match dominates; author is a tiebreaker
-    const aScore = aTitle * 2 + aAuthor;
-    const bScore = bTitle * 2 + bAuthor;
+    const aScore = aTitle * 2 + aAuthor + (a.popularity ?? 0) * 0.35;
+    const bScore = bTitle * 2 + bAuthor + (b.popularity ?? 0) * 0.35;
     return bScore - aScore;
   });
 }
@@ -227,6 +247,7 @@ function dbRowToBookSearchResult(b: any): BookSearchResult {
     isbn: b.isbn,
     coverUrl: cover,
     description: b.description,
+    popularity: 0,
     bookshopUrl: b.bookshop_url ?? `https://bookshop.org/beta-search?keywords=${encodeURIComponent(b.title + ' ' + b.author)}`,
   };
 }

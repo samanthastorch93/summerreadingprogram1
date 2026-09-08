@@ -96,6 +96,7 @@ export interface BookSearchResult {
   coverUrl: string | null;
   bookshopUrl: string;
   description: string | null;
+  popularity?: number;
 }
 
 export const AVATAR_COLORS = [

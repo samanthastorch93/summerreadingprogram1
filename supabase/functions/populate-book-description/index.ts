@@ -1,19 +1,11 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
 
-const GOOGLE_BOOKS_API_KEY = "AIzaSyBra5vSQxneQ-A5o5_seeLZVVtM7wCHpsg";
-
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
   "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Client-Info, Apikey",
 };
-
-const clean = (text: string) =>
-  text
-    .replace(/<[^>]+>/g, "")
-    .replace(/\s+/g, " ")
-    .trim();
 
 function cleanIsbn(isbn: string | null): string | null {
   if (!isbn) return null;
@@ -30,72 +22,40 @@ function isGoodDescription(text: string | null): boolean {
   return true;
 }
 
-async function fetchFullVolumeDescription(volumeId: string): Promise<string | null> {
-  try {
-    const res = await fetch(
-      `https://www.googleapis.com/books/v1/volumes/${volumeId}?key=${GOOGLE_BOOKS_API_KEY}`,
-    );
-    if (!res.ok) return null;
-    const data = await res.json();
-    const desc = data.volumeInfo?.description ?? null;
-    return desc ? clean(desc) : null;
-  } catch {
-    return null;
-  }
+const clean = (text: string) =>
+  text.replace(/<[^>]+>/g, "").replace(/\s+/g, " ").trim();
+
+function extractDesc(obj: any): string | null {
+  const value = obj?.description ?? obj?.notes ?? null;
+  if (!value) return null;
+  const text = typeof value === "string" ? value : (value.value ?? null);
+  return isGoodDescription(text) ? clean(text) : null;
 }
 
-async function fetchFromGoogleBooks(
-  title: string,
-  author: string,
-  rawIsbn: string | null,
-): Promise<string | null> {
-  const key = `&key=${GOOGLE_BOOKS_API_KEY}`;
-  const isbn = cleanIsbn(rawIsbn);
+async function checkWorkAndEditions(workKey: string): Promise<string | null> {
+  try {
+    const workRes = await fetch(`https://openlibrary.org${workKey}.json`);
+    if (workRes.ok) {
+      const workData = await workRes.json();
+      const workDesc = extractDesc(workData);
+      if (workDesc) return workDesc;
 
-  const searchUrls: string[] = [];
-
-  if (isbn) {
-    searchUrls.push(
-      `https://www.googleapis.com/books/v1/volumes?q=isbn:${isbn}&maxResults=5${key}`,
-    );
-  }
-
-  searchUrls.push(
-    `https://www.googleapis.com/books/v1/volumes?q=${encodeURIComponent(
-      `intitle:"${title}" inauthor:"${author}"`,
-    )}&maxResults=5&printType=books${key}`,
-  );
-
-  // Also search ordered by newest — catches recent releases whose descriptions
-  // may not surface in a relevance-ordered search.
-  searchUrls.push(
-    `https://www.googleapis.com/books/v1/volumes?q=${encodeURIComponent(
-      `${title} ${author}`,
-    )}&maxResults=5&printType=books&orderBy=newest${key}`,
-  );
-
-  for (const url of searchUrls) {
-    try {
-      const res = await fetch(url);
-      if (!res.ok) continue;
-      const data = await res.json();
-
-      for (const item of data.items ?? []) {
-        const inline = item.volumeInfo?.description
-          ? clean(item.volumeInfo.description)
-          : null;
-        if (isGoodDescription(inline)) return inline!;
-
-        if (item.id) {
-          const full = await fetchFullVolumeDescription(item.id);
-          if (isGoodDescription(full)) return full!;
+      // Check edition-level descriptions — one edition often has a
+      // publisher-provided description even when the work doesn't
+      try {
+        const editionsRes = await fetch(
+          `https://openlibrary.org${workKey}/editions.json?limit=30`,
+        );
+        if (editionsRes.ok) {
+          const editionsData = await editionsRes.json();
+          for (const ed of editionsData.entries ?? []) {
+            const edDesc = extractDesc(ed);
+            if (edDesc) return edDesc;
+          }
         }
-      }
-    } catch (err) {
-      console.error("Google Books error", err);
+      } catch { /* best effort */ }
     }
-  }
-
+  } catch { /* best effort */ }
   return null;
 }
 
@@ -104,57 +64,81 @@ async function fetchFromOpenLibrary(
   author: string,
   rawIsbn: string | null,
 ): Promise<string | null> {
-  const extractWork = (obj: any): string | null => {
-    const value = obj?.description ?? obj?.notes ?? null;
-    if (!value) return null;
-    const text = typeof value === "string" ? value : (value.value ?? null);
-    return isGoodDescription(text) ? text : null;
-  };
-
   const isbn = cleanIsbn(rawIsbn);
 
-  try {
-    if (isbn) {
-      try {
-        const editionRes = await fetch(`https://openlibrary.org/isbn/${isbn}.json`);
-        if (editionRes.ok) {
-          const edition = await editionRes.json();
-          const workKey: string | null = edition?.works?.[0]?.key ?? null;
-          if (workKey) {
-            const workRes = await fetch(`https://openlibrary.org${workKey}.json`);
-            if (workRes.ok) {
-              const workData = await workRes.json();
-              const synopsis = extractWork(workData);
-              if (synopsis) return synopsis;
-            }
-          }
+  // 1. ISBN → edition → work → description (most reliable path)
+  if (isbn) {
+    try {
+      const editionRes = await fetch(`https://openlibrary.org/isbn/${isbn}.json`);
+      if (editionRes.ok) {
+        const edition = await editionRes.json();
+        const edDesc = extractDesc(edition);
+        if (edDesc) return edDesc;
+
+        const workKey: string | null = edition?.works?.[0]?.key ?? null;
+        if (workKey) {
+          const desc = await checkWorkAndEditions(workKey);
+          if (desc) return desc;
         }
-      } catch (err) {
-        console.error("OpenLibrary ISBN→Work error", err);
       }
+    } catch (err) {
+      console.error("OpenLibrary ISBN→Work error", err);
     }
+  }
 
+  // 2. Search by title + author
+  try {
     const search = await fetch(
-      `https://openlibrary.org/search.json?title=${encodeURIComponent(title)}&author=${encodeURIComponent(author)}&limit=3`,
+      `https://openlibrary.org/search.json?title=${encodeURIComponent(title)}&author=${encodeURIComponent(author)}&limit=5`,
     );
-    if (!search.ok) return null;
-
-    const results = await search.json();
-
-    for (const doc of results.docs ?? []) {
-      if (!doc.key) continue;
-      try {
-        const work = await fetch(`https://openlibrary.org${doc.key}.json`);
-        if (!work.ok) continue;
-        const workData = await work.json();
-        const synopsis = extractWork(workData);
-        if (synopsis) return synopsis;
-      } catch {
-        continue;
+    if (search.ok) {
+      const results = await search.json();
+      for (const doc of results.docs ?? []) {
+        if (!doc.key) continue;
+        const desc = await checkWorkAndEditions(doc.key);
+        if (desc) return desc;
       }
     }
   } catch (err) {
-    console.error("OpenLibrary error", err);
+    console.error("OpenLibrary title+author search error", err);
+  }
+
+  // 3. Search by title only — author name mismatches (typos, transliterations)
+  //    cause the title+author search to miss. Title-only is broader but catches
+  //    the right work when the author name in our DB doesn't match Open Library.
+  try {
+    const search = await fetch(
+      `https://openlibrary.org/search.json?title=${encodeURIComponent(title)}&limit=5`,
+    );
+    if (search.ok) {
+      const results = await search.json();
+      for (const doc of results.docs ?? []) {
+        if (!doc.key) continue;
+        const desc = await checkWorkAndEditions(doc.key);
+        if (desc) return desc;
+      }
+    }
+  } catch (err) {
+    console.error("OpenLibrary title-only search error", err);
+  }
+
+  // 4. Raw query search — catches books whose title is stored differently
+  //    (e.g. "I who have never known men" is the English translation title;
+  //    Open Library has the French original "Moi qui n'ai pas connu les hommes")
+  try {
+    const search = await fetch(
+      `https://openlibrary.org/search.json?q=${encodeURIComponent(title)}&limit=5`,
+    );
+    if (search.ok) {
+      const results = await search.json();
+      for (const doc of results.docs ?? []) {
+        if (!doc.key) continue;
+        const desc = await checkWorkAndEditions(doc.key);
+        if (desc) return desc;
+      }
+    }
+  } catch (err) {
+    console.error("OpenLibrary raw search error", err);
   }
 
   return null;
@@ -215,31 +199,17 @@ Deno.serve(async (req: Request) => {
     );
   }
 
-  // Run both sources in parallel so a slow or rate-limited source doesn't
-  // block the other. Whichever returns a good description first wins.
   let description: string | null = null;
-  let googleDone = false;
-  let olDone = false;
 
-  const [googleResult, olResult] = await Promise.allSettled([
-    fetchFromGoogleBooks(book.title, book.author, book.isbn).then((d) => {
-      googleDone = true;
-      return d;
-    }),
-    fetchFromOpenLibrary(book.title, book.author, book.isbn).then((d) => {
-      olDone = true;
-      return d;
-    }),
-  ]);
-
-  const googleDesc = googleResult.status === "fulfilled" ? googleResult.value : null;
-  const olDesc = olResult.status === "fulfilled" ? olResult.value : null;
-
-  description = isGoodDescription(googleDesc) ? googleDesc : (isGoodDescription(olDesc) ? olDesc : null);
+  try {
+    description = await fetchFromOpenLibrary(book.title, book.author, book.isbn);
+  } catch (err) {
+    console.error("OpenLibrary error", err);
+  }
 
   if (description) {
     description = description.trim();
-    console.log(`Found synopsis for "${book.title}" (google=${googleDone}, ol=${olDone})`);
+    console.log(`Found synopsis for "${book.title}"`);
     const { error } = await supabase.from("books").update({ description }).eq("id", book_id);
     if (error) console.error("DB update error", error);
   } else {
