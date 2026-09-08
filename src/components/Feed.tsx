@@ -24,6 +24,8 @@ interface Props {
   onStatusFilter: (status: Status | null) => void;
   onSelectUser: (userId: string) => void;
   onLogBook?: (book: BookSearchResult) => void;
+  feedMode: 'everyone' | 'following';
+  followingIds: Set<string>;
 }
 
 const TABS: { key: FilterTab; label: string }[] = [
@@ -33,7 +35,7 @@ const TABS: { key: FilterTab; label: string }[] = [
   { key: 'finished', label: 'Finished' },
 ];
 
-export default function Feed({ currentUser, allProfiles, selectedUserId, refreshKey, focusedEntryId, onRefresh, onEdit, statusFilter, onStatusFilter, onSelectUser, onLogBook }: Props) {
+export default function Feed({ currentUser, allProfiles, selectedUserId, refreshKey, focusedEntryId, onRefresh, onEdit, statusFilter, onStatusFilter, onSelectUser, onLogBook, feedMode, followingIds }: Props) {
   const [items, setItems] = useState<FeedItem[]>([]);
   const [commentedEntryIds, setCommentedEntryIds] = useState<Set<string>>(new Set());
   const [hiddenEntryIds, setHiddenEntryIds] = useState<Set<string>>(new Set());
@@ -48,10 +50,12 @@ export default function Feed({ currentUser, allProfiles, selectedUserId, refresh
   useEffect(() => {
     if (selectedUserId) {
       loadUserActivity(selectedUserId);
+    } else if (feedMode === 'following') {
+      loadFollowingItems();
     } else {
       loadAllItems();
     }
-  }, [selectedUserId, refreshKey]);
+  }, [selectedUserId, refreshKey, feedMode, followingIds]);
 
   const profileMap = new Map(allProfiles.map((p) => [p.id, p]));
 
@@ -72,6 +76,57 @@ export default function Feed({ currentUser, allProfiles, selectedUserId, refresh
       entry_status: tl.reading_entries?.status ?? undefined,
       entry_type: tl.reading_entries?.entry_type ?? undefined,
     }));
+  }
+
+  async function loadFollowingItems() {
+    setLoading(true);
+
+    const ids = [...followingIds, currentUser.id];
+    if (ids.length === 0) {
+      setItems([]);
+      setHiddenEntryIds(new Set());
+      setCommentedEntryIds(new Set());
+      setLoading(false);
+      return;
+    }
+
+    const [{ data: entryData }, { data: timeLogData }, { data: hiddenData }] = await Promise.all([
+      supabase
+        .from('reading_entries')
+        .select('*, books(*), comments(id)')
+        .in('user_id', ids)
+        .order('created_at', { ascending: false }),
+      supabase
+        .from('time_logs')
+        .select('*, books(*), reading_entries(status, entry_type)')
+        .in('user_id', ids)
+        .order('created_at', { ascending: false }),
+      supabase
+        .from('hidden_entries')
+        .select('entry_id')
+        .eq('user_id', currentUser.id),
+    ]);
+
+    const entryItems: FeedItem[] = enrichEntries(entryData ?? []).map((e) => ({
+      kind: 'entry',
+      data: e,
+      sortKey: e.created_at,
+    }));
+
+    const timeLogItems: FeedItem[] = enrichTimeLogs(timeLogData ?? []).map((tl) => ({
+      kind: 'timelog',
+      data: tl,
+      sortKey: tl.created_at,
+    }));
+
+    const merged = [...entryItems, ...timeLogItems].sort(
+      (a, b) => new Date(b.sortKey).getTime() - new Date(a.sortKey).getTime()
+    );
+
+    setItems(merged);
+    setHiddenEntryIds(new Set((hiddenData ?? []).map((r: { entry_id: string }) => r.entry_id)));
+    setCommentedEntryIds(new Set());
+    setLoading(false);
   }
 
   async function loadAllItems() {
@@ -219,7 +274,7 @@ export default function Feed({ currentUser, allProfiles, selectedUserId, refresh
           <Frown className="w-10 h-10 text-gray-200 mb-3" />
           <p className="font-semibold text-gray-400 uppercase text-sm">No entries yet</p>
           <p className="text-xs text-gray-400 mt-1">
-            {selectedUserId ? 'No activity to show.' : 'Hit LOG to add your first entry!'}
+            {selectedUserId ? 'No activity to show.' : feedMode === 'following' ? 'Follow some readers to see their activity here!' : 'Hit LOG to add your first entry!'}
           </p>
         </div>
       ) : (

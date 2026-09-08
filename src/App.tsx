@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { Sun } from 'lucide-react';
 import { useAuth } from './hooks/useAuth';
 import { supabase } from './lib/supabase';
-import type { Profile, ReadingEntry, BookSearchResult } from './lib/types';
+import type { Profile, ReadingEntry, BookSearchResult, Follow } from './lib/types';
 import AuthModal from './components/AuthModal';
 import Header from './components/Header';
 import StatsSection from './components/StatsSection';
@@ -35,12 +35,15 @@ export default function App() {
   const [focusedEntryId, setFocusedEntryId] = useState<string | null>(null);
   const [selectedBook, setSelectedBook] = useState<BookSearchResult | null>(null);
   const [prefillBook, setPrefillBook] = useState<BookSearchResult | null>(null);
+  const [followingIds, setFollowingIds] = useState<Set<string>>(new Set());
+  const [feedMode, setFeedMode] = useState<'everyone' | 'following'>('everyone');
 
   const refresh = useCallback(() => setRefreshKey((k) => k + 1), []);
 
   useEffect(() => {
     if (!user) return;
     loadProfiles();
+    loadFollowing(user.id);
     loadUnreadCount(user.id);
     const cleanup = subscribeToNotifications(user.id);
     return cleanup;
@@ -49,6 +52,25 @@ export default function App() {
   async function loadProfiles() {
     const { data } = await supabase.from('profiles').select('*').order('created_at');
     setAllProfiles(data ?? []);
+  }
+
+  async function loadFollowing(userId: string) {
+    const { data } = await supabase
+      .from('follows')
+      .select('following_id')
+      .eq('follower_id', userId);
+    setFollowingIds(new Set((data ?? []).map((f: { following_id: string }) => f.following_id)));
+  }
+
+  async function toggleFollow(targetUserId: string) {
+    if (!user) return;
+    if (followingIds.has(targetUserId)) {
+      setFollowingIds((prev) => { const next = new Set(prev); next.delete(targetUserId); return next; });
+      await supabase.from('follows').delete().eq('follower_id', user.id).eq('following_id', targetUserId);
+    } else {
+      setFollowingIds((prev) => { const next = new Set(prev); next.add(targetUserId); return next; });
+      await supabase.from('follows').insert({ follower_id: user.id, following_id: targetUserId });
+    }
   }
 
   async function loadUnreadCount(userId: string) {
@@ -125,8 +147,13 @@ export default function App() {
           selectedUserName={allProfiles.find((p) => p.id === selectedUserId)?.username ?? null}
           statusFilter={statusFilter}
           onStatusFilter={setStatusFilter}
-          onSelectSelf={() => setSelectedUserId(profile.id)}
-          onClearSelectedUser={() => setSelectedUserId(null)}
+          onSelectSelf={() => { setSelectedUserId(profile.id); setFeedMode('everyone'); }}
+          onClearSelectedUser={() => { setSelectedUserId(null); setFeedMode('everyone'); }}
+          followingIds={followingIds}
+          isFollowingSelected={selectedUserId ? followingIds.has(selectedUserId) : false}
+          onToggleFollow={toggleFollow}
+          feedMode={feedMode}
+          onFeedModeChange={setFeedMode}
         />
         <ReadersSection
           profiles={allProfiles}
@@ -146,8 +173,10 @@ export default function App() {
         onEdit={(entry) => setEditEntry(entry)}
         statusFilter={statusFilter}
         onStatusFilter={setStatusFilter}
-        onSelectUser={(userId) => { setSelectedUserId(userId); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
+        onSelectUser={(userId) => { setSelectedUserId(userId); setFeedMode('everyone'); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
         onLogBook={(book) => { setPrefillBook(book); setShowLogModal(true); }}
+        feedMode={feedMode}
+        followingIds={followingIds}
       />
 
       {(showLogModal || editEntry) && (

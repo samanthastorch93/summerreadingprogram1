@@ -89,6 +89,13 @@ export interface Notification {
   comment?: Pick<Comment, 'content'>;
 }
 
+export interface Follow {
+  id: string;
+  follower_id: string;
+  following_id: string;
+  created_at: string;
+}
+
 export interface BookSearchResult {
   title: string;
   author: string;

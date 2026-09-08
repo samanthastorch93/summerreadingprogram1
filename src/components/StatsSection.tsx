@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { UserPlus, UserCheck } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 
 import type { Status } from '../lib/types';
@@ -18,19 +19,26 @@ interface Props {
   onStatusFilter: (status: Status | null) => void;
   onSelectSelf: () => void;
   onClearSelectedUser: () => void;
+  followingIds: Set<string>;
+  isFollowingSelected: boolean;
+  onToggleFollow: (targetUserId: string) => void;
+  feedMode: 'everyone' | 'following';
+  onFeedModeChange: (mode: 'everyone' | 'following') => void;
 }
 
-type StatsMode = 'mine' | 'everyone' | 'selected';
+type StatsMode = 'mine' | 'everyone' | 'following' | 'selected';
 
-export default function StatsSection({ userId, selectedUserId, selectedUserName, statusFilter, onStatusFilter, onSelectSelf, onClearSelectedUser }: Props) {
+export default function StatsSection({ userId, selectedUserId, selectedUserName, statusFilter, onStatusFilter, onSelectSelf, onClearSelectedUser, followingIds, isFollowingSelected, onToggleFollow, feedMode, onFeedModeChange }: Props) {
   const [mode, setMode] = useState<StatsMode>('everyone');
   const [myStats, setMyStats] = useState<Stats>({ totalMinutes: 0, wantToReadCount: 0, inProgressCount: 0, finishedCount: 0 });
   const [everyoneStats, setEveryoneStats] = useState<Stats>({ totalMinutes: 0, wantToReadCount: 0, inProgressCount: 0, finishedCount: 0 });
+  const [followingStats, setFollowingStats] = useState<Stats>({ totalMinutes: 0, wantToReadCount: 0, inProgressCount: 0, finishedCount: 0 });
   const [selectedStats, setSelectedStats] = useState<Stats>({ totalMinutes: 0, wantToReadCount: 0, inProgressCount: 0, finishedCount: 0 });
 
   useEffect(() => {
     loadMyAndEveryoneStats();
-  }, [userId]);
+    loadFollowingStats();
+  }, [userId, followingIds]);
 
   useEffect(() => {
     if (selectedUserId && selectedUserId === userId) {
@@ -39,9 +47,9 @@ export default function StatsSection({ userId, selectedUserId, selectedUserName,
       setMode('selected');
       loadSelectedStats(selectedUserId);
     } else if (!selectedUserId) {
-      setMode('everyone');
+      setMode(feedMode === 'following' ? 'following' : 'everyone');
     }
-  }, [selectedUserId, userId]);
+  }, [selectedUserId, userId, feedMode]);
 
   async function loadMyAndEveryoneStats() {
     const [{ data: mine }, { data: all }, { data: myLogs }, { data: allLogs }] = await Promise.all([
@@ -54,6 +62,20 @@ export default function StatsSection({ userId, selectedUserId, selectedUserName,
     const allLogMinutes = (allLogs ?? []).reduce((s, r) => s + (r.minutes_added || 0), 0);
     setMyStats(calcStats(mine ?? [], myLogMinutes));
     setEveryoneStats(calcStats(all ?? [], allLogMinutes));
+  }
+
+  async function loadFollowingStats() {
+    const ids = [...followingIds, userId];
+    if (ids.length === 0) {
+      setFollowingStats({ totalMinutes: 0, wantToReadCount: 0, inProgressCount: 0, finishedCount: 0 });
+      return;
+    }
+    const [{ data: entries }, { data: logs }] = await Promise.all([
+      supabase.from('reading_entries').select('status, time_read_minutes').in('user_id', ids),
+      supabase.from('time_logs').select('minutes_added').in('user_id', ids).gt('minutes_added', 0),
+    ]);
+    const logMinutes = (logs ?? []).reduce((s, r) => s + (r.minutes_added || 0), 0);
+    setFollowingStats(calcStats(entries ?? [], logMinutes));
   }
 
   async function loadSelectedStats(uid: string) {
@@ -74,7 +96,7 @@ export default function StatsSection({ userId, selectedUserId, selectedUserName,
     };
   }
 
-  const stats = mode === 'mine' ? myStats : mode === 'everyone' ? everyoneStats : selectedStats;
+  const stats = mode === 'mine' ? myStats : mode === 'following' ? followingStats : mode === 'everyone' ? everyoneStats : selectedStats;
 
   const firstName = selectedUserName?.split(' ')[0] ?? '';
 
@@ -97,7 +119,15 @@ export default function StatsSection({ userId, selectedUserId, selectedUserName,
             My Stats
           </button>
           <button
-            onClick={() => { setMode('everyone'); onClearSelectedUser(); }}
+            onClick={() => { setMode('following'); onFeedModeChange('following'); onClearSelectedUser(); }}
+            className={`text-xs font-bold uppercase tracking-widest px-2 py-1 border-2 border-brand-blue transition-colors ${
+              mode === 'following' ? 'bg-gray-900 text-white' : 'bg-white text-gray-400 hover:bg-gray-50'
+            }`}
+          >
+            Following
+          </button>
+          <button
+            onClick={() => { setMode('everyone'); onFeedModeChange('everyone'); onClearSelectedUser(); }}
             className={`text-xs font-bold uppercase tracking-widest px-2 py-1 border-2 border-brand-blue transition-colors ${
               mode === 'everyone' ? 'bg-gray-900 text-white' : 'bg-white text-gray-400 hover:bg-gray-50'
             }`}
@@ -112,6 +142,21 @@ export default function StatsSection({ userId, selectedUserId, selectedUserName,
               }`}
             >
               {firstName}&rsquo;s Stats
+            </button>
+          )}
+          {selectedUserId && selectedUserId !== userId && (
+            <button
+              onClick={() => onToggleFollow(selectedUserId)}
+              className={`flex items-center gap-1 text-xs font-bold uppercase tracking-widest px-2 py-1 border-2 border-brand-blue transition-all ml-auto ${
+                isFollowingSelected
+                  ? 'bg-white text-gray-400 hover:bg-red-50 hover:text-brand-red hover:border-brand-red'
+                  : 'bg-brand-red text-white hover:bg-red-700'
+              }`}
+            >
+              {isFollowingSelected
+                ? <><UserCheck className="w-3 h-3" /> Following</>
+                : <><UserPlus className="w-3 h-3" /> Follow</>
+              }
             </button>
           )}
         </div>
