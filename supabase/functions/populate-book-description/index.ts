@@ -13,12 +13,87 @@ function cleanIsbn(isbn: string | null): string | null {
   return cleaned.length >= 10 ? cleaned : null;
 }
 
+function normalize(s: string): string {
+  return s.toLowerCase().replace(/[^a-z0-9\s]/g, ' ').replace(/\s+/g, ' ').trim();
+}
+
+function levenshtein(a: string, b: string): number {
+  const m = a.length, n = b.length;
+  if (m === 0) return n;
+  if (n === 0) return m;
+  const dp: number[] = new Array(n + 1);
+  for (let j = 0; j <= n; j++) dp[j] = j;
+  for (let i = 1; i <= m; i++) {
+    let prev = dp[0];
+    dp[0] = i;
+    for (let j = 1; j <= n; j++) {
+      const tmp = dp[j];
+      dp[j] = Math.min(dp[j] + 1, dp[j - 1] + 1, prev + (a[i - 1] === b[j - 1] ? 0 : 1));
+      prev = tmp;
+    }
+  }
+  return dp[n];
+}
+
+function similarity(a: string, b: string): number {
+  const na = normalize(a);
+  const nb = normalize(b);
+  if (!na && !nb) return 1;
+  if (!na || !nb) return 0;
+  const maxLen = Math.max(na.length, nb.length);
+  if (maxLen === 0) return 1;
+  return 1 - levenshtein(na, nb) / maxLen;
+}
+
+function authorMatches(expectedAuthor: string, foundAuthor: string): boolean {
+  const sim = similarity(expectedAuthor, foundAuthor);
+  if (sim >= 0.6) return true;
+  // Check last-name match (handles "Thompson" vs "Thomson", "harpman" vs "Harpman")
+  const expParts = normalize(expectedAuthor).split(' ');
+  const foundParts = normalize(foundAuthor).split(' ');
+  const expLast = expParts[expParts.length - 1];
+  const foundLast = foundParts[foundParts.length - 1];
+  if (expLast && foundLast && similarity(expLast, foundLast) >= 0.8) return true;
+  // Check if any expected name part is contained in found author
+  for (const part of expParts) {
+    if (part.length >= 4 && foundParts.some((fp) => fp === part || (fp.length >= 4 && similarity(part, fp) >= 0.85))) {
+      return true;
+    }
+  }
+  return false;
+}
+
+function titleMatches(expectedTitle: string, foundTitle: string): boolean {
+  const nt = normalize(expectedTitle);
+  const nf = normalize(foundTitle);
+  if (nt === nf) return true;
+  if (nf.includes(nt) || nt.includes(nf)) return true;
+  // For title-only searches, require high similarity to avoid matching
+  // completely different books that share a word
+  return similarity(nt, nf) >= 0.75;
+}
+
 function isGoodDescription(text: string | null): boolean {
   if (!text) return false;
   const t = text.trim();
   if (t.length < 50) return false;
+  // Reject bibliographic metadata that Open Library often puts in description
+  const lower = t.toLowerCase();
   if (/no description/i.test(t)) return false;
   if (/preview/i.test(t)) return false;
+  if (/^source title:/i.test(t)) return false;
+  if (/^privately printed/i.test(t)) return false;
+  if (/^catalog of an exhibition/i.test(t)) return false;
+  if (/^previous ed\./i.test(t)) return false;
+  if (/includes bibliographical references/i.test(t)) return false;
+  if (/includes index/i.test(t)) return false;
+  if (/^cover title\./i.test(t)) return false;
+  if (/^gift;/i.test(t)) return false;
+  if (/selections originally released/i.test(t)) return false;
+  if (/^contains:/i.test(t)) return false;
+  if (/title from container/i.test(t)) return false;
+  // Reject if it's mostly metadata-like (short + no narrative sentences)
+  if (t.length < 80 && !/\./.test(t.slice(0, -1))) return false;
   return true;
 }
 
@@ -40,8 +115,6 @@ async function checkWorkAndEditions(workKey: string): Promise<string | null> {
       const workDesc = extractDesc(workData);
       if (workDesc) return workDesc;
 
-      // Check edition-level descriptions — one edition often has a
-      // publisher-provided description even when the work doesn't
       try {
         const editionsRes = await fetch(
           `https://openlibrary.org${workKey}/editions.json?limit=30`,
@@ -66,7 +139,8 @@ async function fetchFromOpenLibrary(
 ): Promise<string | null> {
   const isbn = cleanIsbn(rawIsbn);
 
-  // 1. ISBN → edition → work → description (most reliable path)
+  // 1. ISBN → edition → work → description (most reliable path — ISBN guarantees
+  //    we're looking at the right book)
   if (isbn) {
     try {
       const editionRes = await fetch(`https://openlibrary.org/isbn/${isbn}.json`);
@@ -86,7 +160,7 @@ async function fetchFromOpenLibrary(
     }
   }
 
-  // 2. Search by title + author
+  // 2. Search by title + author — both must match, so this is safe
   try {
     const search = await fetch(
       `https://openlibrary.org/search.json?title=${encodeURIComponent(title)}&author=${encodeURIComponent(author)}&limit=5`,
@@ -103,17 +177,22 @@ async function fetchFromOpenLibrary(
     console.error("OpenLibrary title+author search error", err);
   }
 
-  // 3. Search by title only — author name mismatches (typos, transliterations)
-  //    cause the title+author search to miss. Title-only is broader but catches
-  //    the right work when the author name in our DB doesn't match Open Library.
+  // 3. Title-only search — MUST verify author and title similarity to avoid
+  //    matching a completely different book that merely shares a title word.
+  //    This catches author name mismatches (typos, transliterations) but
+  //    rejects results for different books.
   try {
     const search = await fetch(
-      `https://openlibrary.org/search.json?title=${encodeURIComponent(title)}&limit=5`,
+      `https://openlibrary.org/search.json?title=${encodeURIComponent(title)}&limit=10`,
     );
     if (search.ok) {
       const results = await search.json();
       for (const doc of results.docs ?? []) {
         if (!doc.key) continue;
+        const docTitle: string = doc.title ?? '';
+        const docAuthors: string[] = doc.author_name ?? [];
+        if (!titleMatches(title, docTitle)) continue;
+        if (!docAuthors.some((a) => authorMatches(author, a))) continue;
         const desc = await checkWorkAndEditions(doc.key);
         if (desc) return desc;
       }
@@ -122,17 +201,21 @@ async function fetchFromOpenLibrary(
     console.error("OpenLibrary title-only search error", err);
   }
 
-  // 4. Raw query search — catches books whose title is stored differently
-  //    (e.g. "I who have never known men" is the English translation title;
-  //    Open Library has the French original "Moi qui n'ai pas connu les hommes")
+  // 4. Raw query search — same author+title verification required.
+  //    Catches books stored under alternate titles (e.g. English translation
+  //    vs. original language title).
   try {
     const search = await fetch(
-      `https://openlibrary.org/search.json?q=${encodeURIComponent(title)}&limit=5`,
+      `https://openlibrary.org/search.json?q=${encodeURIComponent(title)}&limit=10`,
     );
     if (search.ok) {
       const results = await search.json();
       for (const doc of results.docs ?? []) {
         if (!doc.key) continue;
+        const docTitle: string = doc.title ?? '';
+        const docAuthors: string[] = doc.author_name ?? [];
+        if (!titleMatches(title, docTitle)) continue;
+        if (!docAuthors.some((a) => authorMatches(author, a))) continue;
         const desc = await checkWorkAndEditions(doc.key);
         if (desc) return desc;
       }
