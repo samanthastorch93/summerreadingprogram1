@@ -124,7 +124,7 @@ export default function EntryCard({
   const isAudiobook = entry.entry_type === 'audiobook';
   const isOwn = entry.user_id === currentUser.id;
   const isMod = currentUser.is_moderator;
-  const canAddTime = isOwn && (entry.status === 'reading' || entry.status === 'finished');
+  const canAddTime = false;
 
   useEffect(() => {
     if (!menuOpen) return;

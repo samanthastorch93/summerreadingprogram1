@@ -66,7 +66,7 @@ export default function ActivityCard({ log, allProfiles, currentUser, onRefresh,
   const noteFileRef = useRef<HTMLInputElement>(null);
   const notePhotoPickerRef = useRef<HTMLDivElement>(null);
 
-  const canAddTime = isOwn && (currentStatus === 'reading' || currentStatus === 'finished');
+  const canAddTime = false;
 
   useEffect(() => {
     if (!menuOpen) return;
