@@ -1,0 +1,14 @@
+[functions.populate-book-description]
+verify_jwt = false
+
+[functions.delete-account]
+verify_jwt = true
+
+[functions.fetch-link-preview]
+verify_jwt = false
+
+[functions.seed-demo]
+verify_jwt = false
+
+[functions.send-digest]
+verify_jwt = false

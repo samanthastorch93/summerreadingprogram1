@@ -1,8 +1,8 @@
 import { supabase } from './supabase';
 import type { BookSearchResult } from './types';
 
-const GOOGLE_BOOKS_API_KEY = import.meta.env.VITE_GOOGLE_BOOKS_API_KEY ?? '';
-const FETCH_TIMEOUT_MS = 3000;
+const GOOGLE_BOOKS_API_KEY = 'AIzaSyBra5vSQxneQ-A5o5_seeLZVVtM7wCHpsg';
+const FETCH_TIMEOUT_MS = 2500;
 
 async function fetchWithTimeout(url: string, opts: RequestInit = {}, timeoutMs = FETCH_TIMEOUT_MS): Promise<Response> {
   const controller = new AbortController();
@@ -14,12 +14,35 @@ async function fetchWithTimeout(url: string, opts: RequestInit = {}, timeoutMs =
   }
 }
 
+function mapGoogleItem(item: any): BookSearchResult | null {
+  const info = item.volumeInfo;
+  if (!info?.title) return null;
+  const author = info.authors?.[0] ?? 'Unknown';
+  const identifiers: any[] = info.industryIdentifiers ?? [];
+  const isbn =
+    identifiers.find((x: any) => x.type === 'ISBN_13')?.identifier ??
+    identifiers.find((x: any) => x.type === 'ISBN_10')?.identifier ??
+    null;
+  const rawThumb = info.imageLinks?.thumbnail ?? info.imageLinks?.smallThumbnail ?? null;
+  const coverUrl = rawThumb
+    ? rawThumb.replace('http://', 'https://').replace('&edge=curl', '')
+    : null;
+  return {
+    title: info.title,
+    author,
+    isbn,
+    coverUrl,
+    description: info.description ?? null,
+    bookshopUrl: `https://bookshop.org/beta-search?keywords=${encodeURIComponent(info.title + ' ' + author)}`,
+  };
+}
+
 async function searchGoogleBooks(titleQ: string, authorQ: string): Promise<BookSearchResult[]> {
   const keyParam = GOOGLE_BOOKS_API_KEY ? `&key=${GOOGLE_BOOKS_API_KEY}` : '';
 
-  async function fetchQuery(q: string) {
+  async function fetchQuery(q: string, orderBy = 'relevance'): Promise<any[]> {
     const res = await fetchWithTimeout(
-      `https://www.googleapis.com/books/v1/volumes?q=${encodeURIComponent(q)}&maxResults=10&printType=books&orderBy=relevance${keyParam}`
+      `https://www.googleapis.com/books/v1/volumes?q=${encodeURIComponent(q)}&maxResults=10&printType=books&orderBy=${orderBy}${keyParam}`
     );
     if (!res.ok) throw new Error(`Google Books ${res.status}`);
     const data = await res.json();
@@ -27,31 +50,6 @@ async function searchGoogleBooks(titleQ: string, authorQ: string): Promise<BookS
     return data.items ?? [];
   }
 
-  function mapItem(item: any): BookSearchResult | null {
-    const info = item.volumeInfo;
-    if (!info?.title) return null;
-    const author = info.authors?.[0] ?? 'Unknown';
-    const identifiers: any[] = info.industryIdentifiers ?? [];
-    const isbn =
-      identifiers.find((x: any) => x.type === 'ISBN_13')?.identifier ??
-      identifiers.find((x: any) => x.type === 'ISBN_10')?.identifier ??
-      null;
-    const rawThumb = info.imageLinks?.thumbnail ?? info.imageLinks?.smallThumbnail ?? null;
-    const coverUrl = rawThumb
-      ? rawThumb.replace('http://', 'https://').replace('&edge=curl', '')
-      : null;
-    return {
-      title: info.title,
-      author,
-      isbn,
-      coverUrl,
-      description: info.description ?? null,
-      bookshopUrl: `https://bookshop.org/beta-search?keywords=${encodeURIComponent(info.title + ' ' + author)}`,
-    };
-  }
-
-  // When titleQ === authorQ the caller is doing a raw combined search (e.g. header
-  // bar). Skip field qualifiers so Google handles the whole phrase naturally.
   const isRawQuery = titleQ && authorQ && titleQ === authorQ;
 
   let items: any[] = [];
@@ -75,13 +73,36 @@ async function searchGoogleBooks(titleQ: string, authorQ: string): Promise<BookS
     }
   }
 
-  return items.map(mapItem).filter((b): b is BookSearchResult => b !== null);
+  const relevanceResults = items.map(mapGoogleItem).filter((b): b is BookSearchResult => b !== null);
+
+  // For recent (2026) books: do a second query ordered by newest publication date.
+  // This catches newly released titles that may not rank highly by relevance.
+  if (titleQ) {
+    try {
+      const newestQ = isRawQuery
+        ? titleQ
+        : [titleQ, authorQ].filter(Boolean).join(' ');
+      const newestItems = await fetchQuery(newestQ, 'newest');
+      const newestResults = newestItems
+        .map(mapGoogleItem)
+        .filter((b): b is BookSearchResult => b !== null);
+      // Merge newest results that aren't already in the relevance set
+      const seen = new Set(relevanceResults.map((b) => `${b.title.toLowerCase()}|${b.author.toLowerCase()}`));
+      for (const book of newestResults) {
+        const key = `${book.title.toLowerCase()}|${book.author.toLowerCase()}`;
+        if (!seen.has(key)) {
+          seen.add(key);
+          relevanceResults.push(book);
+        }
+      }
+    } catch { /* best effort */ }
+  }
+
+  return relevanceResults;
 }
 
 async function searchOpenLibrary(titleQ: string, authorQ: string): Promise<BookSearchResult[]> {
   const params = new URLSearchParams({ fields: 'title,author_name,isbn,cover_i,key', limit: '10' });
-  // When both are the same string, it's a raw combined query — use the `q` field
-  // so Open Library tokenises it across all fields.
   const isRawQuery = titleQ && authorQ && titleQ === authorQ;
   if (isRawQuery) {
     params.set('q', titleQ);
@@ -139,25 +160,38 @@ function similarity(a: string, b: string): number {
   return 1 - levenshtein(a, b) / maxLen;
 }
 
-function rankResults(results: BookSearchResult[], titleQ: string, authorQ?: string): BookSearchResult[] {
-  const tq = titleQ.toLowerCase().trim();
+function titleMatchScore(query: string, title: string): number {
+  const q = query.toLowerCase().trim();
+  const t = title.toLowerCase().trim();
+  if (!q) return 0;
+  if (t === q) return 1.0;
+  if (t.startsWith(q)) return 0.92;
+  if (t.includes(q)) return 0.85;
+  return similarity(q, t.slice(0, Math.max(q.length, t.length))) * 0.7;
+}
+
+function authorMatchScore(query: string, author: string): number {
+  const q = query.toLowerCase().trim();
+  const a = author.toLowerCase().trim();
+  if (!q) return 0;
+  if (a === q) return 1.0;
+  if (a.startsWith(q)) return 0.9;
+  if (a.includes(q)) return 0.8;
+  return similarity(q, a) * 0.6;
+}
+
+export function rankResults(results: BookSearchResult[], titleQ: string, authorQ?: string): BookSearchResult[] {
+  const tq = (titleQ || '').toLowerCase().trim();
   const aq = (authorQ ?? '').toLowerCase().trim();
   if (!tq && !aq) return results;
   return [...results].sort((a, b) => {
-    const at = a.title.toLowerCase().trim();
-    const bt = b.title.toLowerCase().trim();
-    const aa = a.author.toLowerCase().trim();
-    const ba = b.author.toLowerCase().trim();
-    let aScore = 0;
-    let bScore = 0;
-    if (tq) {
-      aScore += similarity(tq, at.slice(0, Math.max(tq.length, at.length)));
-      bScore += similarity(tq, bt.slice(0, Math.max(tq.length, bt.length)));
-    }
-    if (aq) {
-      aScore += similarity(aq, aa) * 1.5;
-      bScore += similarity(aq, ba) * 1.5;
-    }
+    const aTitle = titleMatchScore(tq, a.title);
+    const bTitle = titleMatchScore(tq, b.title);
+    const aAuthor = authorMatchScore(aq, a.author);
+    const bAuthor = authorMatchScore(aq, b.author);
+    // Title match dominates; author is a tiebreaker
+    const aScore = aTitle * 2 + aAuthor;
+    const bScore = bTitle * 2 + bAuthor;
     return bScore - aScore;
   });
 }
@@ -197,33 +231,57 @@ function dbRowToBookSearchResult(b: any): BookSearchResult {
   };
 }
 
-export async function searchBooks(titleQ: string, authorQ: string): Promise<BookSearchResult[]> {
-  try {
-    return rankResults(await searchGoogleBooks(titleQ, authorQ), titleQ, authorQ);
-  } catch {
-    return rankResults(await searchOpenLibrary(titleQ, authorQ), titleQ, authorQ);
+export async function searchExternal(titleQ: string, authorQ: string): Promise<BookSearchResult[]> {
+  // Run Google Books and Open Library in parallel so the slowest source
+  // determines the wait, not the sum of both.
+  const [googleResult, olResult] = await Promise.allSettled([
+    searchGoogleBooks(titleQ, authorQ),
+    searchOpenLibrary(titleQ, authorQ),
+  ]);
+
+  const googleBooks = googleResult.status === 'fulfilled' ? googleResult.value : [];
+  const olBooks = olResult.status === 'fulfilled' ? olResult.value : [];
+
+  // Merge: Google Books first (better metadata for recent books), then OL for extras
+  const seen = new Set(googleBooks.map((b) => `${b.title.toLowerCase()}|${b.author.toLowerCase()}`));
+  const merged = [...googleBooks];
+  for (const book of olBooks) {
+    const key = `${book.title.toLowerCase()}|${book.author.toLowerCase()}`;
+    if (!seen.has(key)) {
+      seen.add(key);
+      merged.push(book);
+    }
   }
+
+  return merged;
+}
+
+export async function searchBooks(titleQ: string, authorQ: string): Promise<BookSearchResult[]> {
+  const external = await searchExternal(titleQ, authorQ);
+  return rankResults(external, titleQ, authorQ);
 }
 
 export async function searchBooksHybrid(titleQ: string, authorQ: string): Promise<BookSearchResult[]> {
-  // Pass the raw query as both title AND author for the DB so it matches across
-  // both fields (e.g. "harper lee to kill a mockingbird" hits title and author).
   const dbTitleQ = titleQ;
   const dbAuthorQ = authorQ || titleQ;
+
   const [dbResult, externalResult] = await Promise.allSettled([
     searchBooksInDb(dbTitleQ, dbAuthorQ),
-    searchBooks(titleQ, authorQ),
+    searchExternal(titleQ, authorQ),
   ]);
 
   const dbResults = dbResult.status === 'fulfilled' ? dbResult.value : [];
   const externalResults = externalResult.status === 'fulfilled' ? externalResult.value : [];
 
-  const seen = new Set(dbResults.map((b) => `${b.title.toLowerCase()}|${b.author.toLowerCase()}`));
-  const merged = [...dbResults];
-  for (const book of externalResults) {
+  // Merge: prefer external results for better metadata, but include DB results
+  // that don't match an external result. External results carry fresher covers,
+  // ISBNs, and descriptions.
+  const externalKeys = new Set(externalResults.map((b) => `${b.title.toLowerCase()}|${b.author.toLowerCase()}`));
+  const merged = [...externalResults];
+  for (const book of dbResults) {
     const key = `${book.title.toLowerCase()}|${book.author.toLowerCase()}`;
-    if (!seen.has(key)) {
-      seen.add(key);
+    if (!externalKeys.has(key)) {
+      externalKeys.add(key);
       merged.push(book);
     }
   }
@@ -269,6 +327,7 @@ export async function fetchBookDescription(
     } catch { /* fall through */ }
   }
 
+  // Client-side fallback: try Open Library directly (useful when book isn't in DB yet)
   try {
     if (isbn) {
       try {

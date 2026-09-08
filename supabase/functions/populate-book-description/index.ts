@@ -66,6 +66,14 @@ async function fetchFromGoogleBooks(
     )}&maxResults=5&printType=books${key}`,
   );
 
+  // Also search ordered by newest — catches recent releases whose descriptions
+  // may not surface in a relevance-ordered search.
+  searchUrls.push(
+    `https://www.googleapis.com/books/v1/volumes?q=${encodeURIComponent(
+      `${title} ${author}`,
+    )}&maxResults=5&printType=books&orderBy=newest${key}`,
+  );
+
   for (const url of searchUrls) {
     try {
       const res = await fetch(url);
@@ -106,7 +114,6 @@ async function fetchFromOpenLibrary(
   const isbn = cleanIsbn(rawIsbn);
 
   try {
-    // ISBN → edition → follow work key → Work API (most likely to have a real description)
     if (isbn) {
       try {
         const editionRes = await fetch(`https://openlibrary.org/isbn/${isbn}.json`);
@@ -127,7 +134,6 @@ async function fetchFromOpenLibrary(
       }
     }
 
-    // Fallback: search by title/author, then follow each result's work key
     const search = await fetch(
       `https://openlibrary.org/search.json?title=${encodeURIComponent(title)}&author=${encodeURIComponent(author)}&limit=3`,
     );
@@ -195,15 +201,13 @@ Deno.serve(async (req: Request) => {
     );
   }
 
-  // Articles have a source_url — skip them
   if (book.source_url) {
     return new Response(
-      JSON.stringify({ skipped: true, reason: "article" }),
+      JSON.stringify({ skipped: true, reason: "audiobook" }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );
   }
 
-  // Already has a description — skip
   if (book.description) {
     return new Response(
       JSON.stringify({ skipped: true, reason: "already_populated" }),
@@ -211,14 +215,31 @@ Deno.serve(async (req: Request) => {
     );
   }
 
-  let description = await fetchFromGoogleBooks(book.title, book.author, book.isbn);
-  if (!isGoodDescription(description)) {
-    description = await fetchFromOpenLibrary(book.title, book.author, book.isbn);
-  }
+  // Run both sources in parallel so a slow or rate-limited source doesn't
+  // block the other. Whichever returns a good description first wins.
+  let description: string | null = null;
+  let googleDone = false;
+  let olDone = false;
+
+  const [googleResult, olResult] = await Promise.allSettled([
+    fetchFromGoogleBooks(book.title, book.author, book.isbn).then((d) => {
+      googleDone = true;
+      return d;
+    }),
+    fetchFromOpenLibrary(book.title, book.author, book.isbn).then((d) => {
+      olDone = true;
+      return d;
+    }),
+  ]);
+
+  const googleDesc = googleResult.status === "fulfilled" ? googleResult.value : null;
+  const olDesc = olResult.status === "fulfilled" ? olResult.value : null;
+
+  description = isGoodDescription(googleDesc) ? googleDesc : (isGoodDescription(olDesc) ? olDesc : null);
 
   if (description) {
     description = description.trim();
-    console.log(`Found synopsis for "${book.title}"`);
+    console.log(`Found synopsis for "${book.title}" (google=${googleDone}, ol=${olDone})`);
     const { error } = await supabase.from("books").update({ description }).eq("id", book_id);
     if (error) console.error("DB update error", error);
   } else {

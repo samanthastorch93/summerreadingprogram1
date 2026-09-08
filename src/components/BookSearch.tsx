@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { Search, Loader2 } from 'lucide-react';
 import type { BookSearchResult } from '../lib/types';
-import { searchBooksHybrid } from '../lib/bookSearch';
+import { searchBooksInDb, searchExternal, rankResults } from '../lib/bookSearch';
 
 interface Props {
   title: string;
@@ -51,12 +51,40 @@ export default function BookSearch({ title, author, onTitleChange, onAuthorChang
     debounceRef.current = setTimeout(async () => {
       lastQueryRef.current = cacheKey;
       setLoading(true);
+
+      const dbAuthorQ = authorQ || titleQ;
+
+      // Kick off DB and external searches in parallel, but show DB results
+      // immediately as soon as they arrive so the user sees suggestions fast.
+      let dbBooks: BookSearchResult[] = [];
       try {
-        const books = await searchBooksHybrid(titleQ, authorQ);
-        setResults(books);
-        setOpenFor(books.length > 0 ? openForRef.current : null);
+        dbBooks = await searchBooksInDb(titleQ, dbAuthorQ);
+        if (dbBooks.length > 0) {
+          setResults(rankResults(dbBooks, titleQ, authorQ));
+          setOpenFor(openForRef.current);
+        }
+      } catch { /* silent */ }
+
+      try {
+        const externalBooks = await searchExternal(titleQ, authorQ);
+
+        // Merge: external results take priority (fresher metadata), DB fills gaps
+        const externalKeys = new Set(externalBooks.map((b) => `${b.title.toLowerCase()}|${b.author.toLowerCase()}`));
+        const merged = [...externalBooks];
+        for (const book of dbBooks) {
+          const key = `${book.title.toLowerCase()}|${book.author.toLowerCase()}`;
+          if (!externalKeys.has(key)) {
+            externalKeys.add(key);
+            merged.push(book);
+          }
+        }
+
+        const ranked = rankResults(merged, titleQ, authorQ).slice(0, 10);
+        setResults(ranked);
+        setOpenFor(ranked.length > 0 ? openForRef.current : null);
       } catch {
-        // silent fail — user can type manually
+        // If external fails, keep whatever DB results we already showed
+        if (dbBooks.length === 0) setResults([]);
       } finally {
         setLoading(false);
       }
