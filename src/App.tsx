@@ -148,7 +148,7 @@ export default function App() {
           statusFilter={statusFilter}
           onStatusFilter={setStatusFilter}
           onSelectSelf={() => { setSelectedUserId(profile.id); setFeedMode('everyone'); }}
-          onClearSelectedUser={() => { setSelectedUserId(null); setFeedMode('everyone'); }}
+          onClearSelectedUser={() => setSelectedUserId(null)}
           followingIds={followingIds}
           feedMode={feedMode}
           onFeedModeChange={setFeedMode}
