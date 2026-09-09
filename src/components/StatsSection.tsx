@@ -62,7 +62,7 @@ export default function StatsSection({ userId, selectedUserId, selectedUserName,
   }
 
   async function loadFollowingStats() {
-    const ids = [...followingIds, userId];
+    const ids = [...followingIds];
     if (ids.length === 0) {
       setFollowingStats({ totalMinutes: 0, wantToReadCount: 0, inProgressCount: 0, finishedCount: 0 });
       return;
