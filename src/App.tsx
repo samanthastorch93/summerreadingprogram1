@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { Sun } from 'lucide-react';
 import { useAuth } from './hooks/useAuth';
 import { supabase } from './lib/supabase';
-import type { Profile, ReadingEntry, BookSearchResult, Follow } from './lib/types';
+import type { Profile, ReadingEntry, BookSearchResult } from './lib/types';
 import AuthModal from './components/AuthModal';
 import Header from './components/Header';
 import StatsSection from './components/StatsSection';

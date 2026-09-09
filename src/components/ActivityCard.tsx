@@ -733,6 +733,7 @@ export default function ActivityCard({ log, allProfiles, currentUser, onRefresh,
       {commentsOpen && (
         <CommentSection
           entryId={log.entry_id}
+          entryOwnerId={log.user_id}
           currentUser={currentUser}
           allProfiles={allProfiles}
           onRefresh={onRefresh}

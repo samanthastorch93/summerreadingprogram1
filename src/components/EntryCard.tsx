@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { MessageCircle, BookOpen, HeadPhones, MoreHorizontal, PlusCircle, X, Loader2, Camera, EyeOff, Eye, ChevronDown, Link, UserPlus, UserCheck } from 'lucide-react';
+import { MessageCircle, BookOpen, Headphones, MoreHorizontal, PlusCircle, X, Loader2, Camera, EyeOff, Eye, ChevronDown, Link, UserPlus, UserCheck } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import {
   timeAgo,
@@ -23,7 +23,6 @@ interface Props {
   alsoLoggedBy: Profile[];
   currentUser: Profile;
   allProfiles: Profile[];
-  isCommentedEntry?: boolean;
   autoExpandComments?: boolean;
   isHidden?: boolean;
   onRefresh: () => void;
@@ -82,7 +81,6 @@ export default function EntryCard({
   alsoLoggedBy,
   currentUser,
   allProfiles,
-  isCommentedEntry = false,
   autoExpandComments = false,
   isHidden = false,
   onRefresh,

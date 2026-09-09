@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Loader2, Frown } from 'lucide-react';
 import { supabase } from '../lib/supabase';
-import { formatTimeRead } from '../lib/types';
 import type { ReadingEntry, TimeLog, Profile, Status, BookSearchResult } from '../lib/types';
 import EntryCard from './EntryCard';
 import ActivityCard from './ActivityCard';
@@ -38,7 +37,7 @@ const TABS: { key: FilterTab; label: string }[] = [
 
 export default function Feed({ currentUser, allProfiles, selectedUserId, refreshKey, focusedEntryId, onRefresh, onEdit, statusFilter, onStatusFilter, onSelectUser, onLogBook, feedMode, followingIds, onToggleFollow }: Props) {
   const [items, setItems] = useState<FeedItem[]>([]);
-  const [commentedEntryIds, setCommentedEntryIds] = useState<Set<string>>(new Set());
+
   const [hiddenEntryIds, setHiddenEntryIds] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
 
@@ -86,7 +85,6 @@ export default function Feed({ currentUser, allProfiles, selectedUserId, refresh
     if (ids.length === 0) {
       setItems([]);
       setHiddenEntryIds(new Set());
-      setCommentedEntryIds(new Set());
       setLoading(false);
       return;
     }
@@ -126,7 +124,6 @@ export default function Feed({ currentUser, allProfiles, selectedUserId, refresh
 
     setItems(merged);
     setHiddenEntryIds(new Set((hiddenData ?? []).map((r: { entry_id: string }) => r.entry_id)));
-    setCommentedEntryIds(new Set());
     setLoading(false);
   }
 
@@ -166,7 +163,6 @@ export default function Feed({ currentUser, allProfiles, selectedUserId, refresh
 
     setItems(merged);
     setHiddenEntryIds(new Set((hiddenData ?? []).map((r: { entry_id: string }) => r.entry_id)));
-    setCommentedEntryIds(new Set());
     setLoading(false);
   }
 
@@ -208,7 +204,6 @@ export default function Feed({ currentUser, allProfiles, selectedUserId, refresh
 
     setItems(merged);
     setHiddenEntryIds(new Set((hiddenData ?? []).map((r: { entry_id: string }) => r.entry_id)));
-    setCommentedEntryIds(new Set());
     setLoading(false);
   }
 
@@ -305,7 +300,6 @@ export default function Feed({ currentUser, allProfiles, selectedUserId, refresh
                     alsoLoggedBy={getAlsoLoggedBy(item.data)}
                     currentUser={currentUser}
                     allProfiles={allProfiles}
-                    isCommentedEntry={commentedEntryIds.has(item.data.id)}
                     autoExpandComments={focusedEntryId === item.data.id}
                     isHidden={hiddenEntryIds.has(item.data.id)}
                     onRefresh={onRefresh}
