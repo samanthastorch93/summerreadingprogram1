@@ -1,5 +1,5 @@
 import { useRef, useState, useEffect } from 'react';
-import { ChevronLeft, ChevronRight, UserPlus, UserMinus, UserCheck } from 'lucide-react';
+import { ChevronLeft, ChevronRight, UserPlus, UserCheck } from 'lucide-react';
 import type { Profile } from '../lib/types';
 import AvatarIcon from './AvatarIcon';
 import ConfirmDialog from './ConfirmDialog';
@@ -96,13 +96,13 @@ export default function ReadersSection({ profiles, selectedUserId, currentUserId
                       onClick={(e) => { e.stopPropagation(); isFollowing ? setConfirmUnfollowId(p.id) : onToggleFollow(p.id); }}
                       className={`flex items-center justify-center w-5 h-5 border transition-all opacity-0 group-hover:opacity-100 shrink-0 ${
                         isFollowing
-                          ? 'bg-green-100 text-green-700 border-green-500 hover:bg-red-50 hover:text-brand-red hover:border-brand-red'
+                          ? 'bg-green-100 text-green-700 border-green-500 hover:bg-green-200'
                           : 'bg-brand-blue text-white border-brand-blue hover:bg-blue-800'
                       }`}
                       title={isFollowing ? 'Unfollow' : 'Follow'}
                     >
                       {isFollowing
-                        ? <><UserCheck className="w-3 h-3 group-hover:hidden" /><UserMinus className="w-3 h-3 hidden group-hover:inline" /></>
+                        ? <UserCheck className="w-3 h-3" />
                         : <UserPlus className="w-3 h-3" />
                       }
                     </button>
