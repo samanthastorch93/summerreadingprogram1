@@ -160,6 +160,7 @@ export default function App() {
           onSelect={setSelectedUserId}
           followingIds={followingIds}
           onToggleFollow={toggleFollow}
+          feedMode={feedMode}
         />
       </div>
 

@@ -11,9 +11,10 @@ interface Props {
   onSelect: (userId: string | null) => void;
   followingIds: Set<string>;
   onToggleFollow: (targetUserId: string) => void;
+  feedMode: 'everyone' | 'following';
 }
 
-export default function ReadersSection({ profiles, selectedUserId, currentUserId, onSelect, followingIds, onToggleFollow }: Props) {
+export default function ReadersSection({ profiles, selectedUserId, currentUserId, onSelect, followingIds, onToggleFollow, feedMode }: Props) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [canScrollLeft, setCanScrollLeft] = useState(false);
   const [canScrollRight, setCanScrollRight] = useState(false);
@@ -42,6 +43,10 @@ export default function ReadersSection({ profiles, selectedUserId, currentUserId
 
   if (profiles.length === 0) return null;
 
+  const visibleProfiles = feedMode === 'following'
+    ? profiles.filter((p) => p.id !== currentUserId && followingIds.has(p.id))
+    : profiles;
+
   return (
     <section className="border-2 border-t-0 border-brand-blue bg-brand-pink">
       <div className="py-2 px-4">
@@ -63,7 +68,7 @@ export default function ReadersSection({ profiles, selectedUserId, currentUserId
             className="flex gap-2 overflow-x-auto scrollbar-hide pb-1 w-full"
             style={{ scrollbarWidth: 'none' }}
           >
-            {profiles.map((p) => {
+            {visibleProfiles.map((p) => {
               const isSelected = selectedUserId === p.id;
               const isSelf = p.id === currentUserId;
               const isFollowing = followingIds.has(p.id);
