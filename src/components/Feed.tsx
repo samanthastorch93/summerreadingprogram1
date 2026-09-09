@@ -81,7 +81,7 @@ export default function Feed({ currentUser, allProfiles, selectedUserId, refresh
   async function loadFollowingItems() {
     setLoading(true);
 
-    const ids = [...followingIds, currentUser.id];
+    const ids = [...followingIds];
     if (ids.length === 0) {
       setItems([]);
       setHiddenEntryIds(new Set());
