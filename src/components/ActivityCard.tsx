@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { Clock, BookOpen, MoreHorizontal, Loader2, Check, X, Camera, Trash2, MessageCircle, ChevronDown, PlusCircle, Link, UserPlus, UserMinus } from 'lucide-react';
+import { Clock, BookOpen, MoreHorizontal, Loader2, Check, X, Camera, Trash2, MessageCircle, ChevronDown, PlusCircle, Link, UserPlus, UserMinus, UserCheck } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { timeAgo, formatTimeRead, statusLabel, countWords } from '../lib/types';
 import type { TimeLog, Profile, Status, BookSearchResult } from '../lib/types';
@@ -40,6 +40,7 @@ export default function ActivityCard({ log, allProfiles, currentUser, onRefresh,
   const [menuOpen, setMenuOpen] = useState(false);
   const [statusDropdownOpen, setStatusDropdownOpen] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [confirmUnfollowId, setConfirmUnfollowId] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [editing, setEditing] = useState(false);
   const [editMinutes, setEditMinutes] = useState(String(log.minutes_added));
@@ -319,15 +320,15 @@ export default function ActivityCard({ log, allProfiles, currentUser, onRefresh,
           </p>
           {!isOwn && profile?.id && (
             <button
-              onClick={() => onToggleFollow(profile.id)}
-              className={`flex items-center gap-1 text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 border-2 border-brand-blue transition-all opacity-0 group-hover:opacity-100 shrink-0 ${
+              onClick={() => followingIds.has(profile.id) ? setConfirmUnfollowId(profile.id) : onToggleFollow(profile.id)}
+              className={`flex items-center gap-1 text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 border-2 transition-all opacity-0 group-hover:opacity-100 shrink-0 ${
                 followingIds.has(profile.id)
-                  ? 'bg-green-100 text-green-700 border-green-500 hover:bg-green-200'
-                  : 'bg-brand-blue text-white hover:bg-blue-800'
+                  ? 'bg-green-100 text-green-700 border-green-500 hover:bg-red-50 hover:text-brand-red hover:border-brand-red'
+                  : 'bg-brand-blue text-white border-brand-blue hover:bg-blue-800'
               }`}
             >
               {followingIds.has(profile.id)
-                ? <><UserMinus className="w-2.5 h-2.5" /> Following</>
+                ? <><UserCheck className="w-2.5 h-2.5 group-hover:hidden" /><UserMinus className="w-2.5 h-2.5 hidden group-hover:inline" /> Following</>
                 : <><UserPlus className="w-2.5 h-2.5" /> Follow</>
               }
             </button>
@@ -744,6 +745,15 @@ export default function ActivityCard({ log, allProfiles, currentUser, onRefresh,
         message="Delete this time log? This cannot be undone."
         onConfirm={() => { setConfirmDelete(false); handleDelete(); }}
         onCancel={() => setConfirmDelete(false)}
+      />
+    )}
+
+    {confirmUnfollowId && (
+      <ConfirmDialog
+        message="Are you sure you want to unfollow?"
+        confirmLabel="Unfollow"
+        onConfirm={() => { onToggleFollow(confirmUnfollowId); setConfirmUnfollowId(null); }}
+        onCancel={() => setConfirmUnfollowId(null)}
       />
     )}
 

@@ -1,7 +1,8 @@
 import { useRef, useState, useEffect } from 'react';
-import { ChevronLeft, ChevronRight, UserPlus, UserMinus } from 'lucide-react';
+import { ChevronLeft, ChevronRight, UserPlus, UserMinus, UserCheck } from 'lucide-react';
 import type { Profile } from '../lib/types';
 import AvatarIcon from './AvatarIcon';
+import ConfirmDialog from './ConfirmDialog';
 
 interface Props {
   profiles: Profile[];
@@ -16,6 +17,7 @@ export default function ReadersSection({ profiles, selectedUserId, currentUserId
   const scrollRef = useRef<HTMLDivElement>(null);
   const [canScrollLeft, setCanScrollLeft] = useState(false);
   const [canScrollRight, setCanScrollRight] = useState(false);
+  const [confirmUnfollowId, setConfirmUnfollowId] = useState<string | null>(null);
 
   function checkScroll() {
     const el = scrollRef.current;
@@ -91,16 +93,16 @@ export default function ReadersSection({ profiles, selectedUserId, currentUserId
                   </button>
                   {!isSelf && (
                     <button
-                      onClick={(e) => { e.stopPropagation(); onToggleFollow(p.id); }}
+                      onClick={(e) => { e.stopPropagation(); isFollowing ? setConfirmUnfollowId(p.id) : onToggleFollow(p.id); }}
                       className={`flex items-center justify-center w-5 h-5 border transition-all opacity-0 group-hover:opacity-100 shrink-0 ${
                         isFollowing
-                          ? 'bg-green-100 text-green-700 border-green-500 hover:bg-green-200'
+                          ? 'bg-green-100 text-green-700 border-green-500 hover:bg-red-50 hover:text-brand-red hover:border-brand-red'
                           : 'bg-brand-blue text-white border-brand-blue hover:bg-blue-800'
                       }`}
                       title={isFollowing ? 'Unfollow' : 'Follow'}
                     >
                       {isFollowing
-                        ? <UserMinus className="w-3 h-3" />
+                        ? <><UserCheck className="w-3 h-3 group-hover:hidden" /><UserMinus className="w-3 h-3 hidden group-hover:inline" /></>
                         : <UserPlus className="w-3 h-3" />
                       }
                     </button>
@@ -120,6 +122,15 @@ export default function ReadersSection({ profiles, selectedUserId, currentUserId
           )}
         </div>
       </div>
+
+      {confirmUnfollowId && (
+        <ConfirmDialog
+          message="Are you sure you want to unfollow?"
+          confirmLabel="Unfollow"
+          onConfirm={() => { onToggleFollow(confirmUnfollowId); setConfirmUnfollowId(null); }}
+          onCancel={() => setConfirmUnfollowId(null)}
+        />
+      )}
     </section>
   );
 }
