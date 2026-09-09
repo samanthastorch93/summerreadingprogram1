@@ -1,5 +1,5 @@
 import { useRef, useState, useEffect } from 'react';
-import { ChevronLeft, ChevronRight, UserPlus, UserCheck } from 'lucide-react';
+import { ChevronLeft, ChevronRight, UserPlus, UserMinus } from 'lucide-react';
 import type { Profile } from '../lib/types';
 import AvatarIcon from './AvatarIcon';
 
@@ -68,12 +68,13 @@ export default function ReadersSection({ profiles, selectedUserId, currentUserId
               return (
                 <div
                   key={p.id}
-                  className="group relative flex items-center gap-2 shrink-0 border-2 border-brand-blue px-2.5 py-1.5 transition-all"
-                  style={{ background: isSelected ? '#111827' : undefined }}
+                  className={`group relative flex items-center gap-2 shrink-0 border-2 border-brand-blue px-2.5 py-1.5 transition-all ${
+                    isSelected ? 'bg-gray-900' : 'bg-white hover:bg-brand-yellow'
+                  }`}
                 >
                   <button
                     onClick={() => onSelect(isSelected ? null : p.id)}
-                    className={`flex items-center gap-2 ${isSelected ? 'text-white' : 'hover:bg-brand-yellow'}`}
+                    className="flex items-center gap-2"
                   >
                     {p.avatar_url ? (
                       <img
@@ -91,15 +92,15 @@ export default function ReadersSection({ profiles, selectedUserId, currentUserId
                   {!isSelf && (
                     <button
                       onClick={(e) => { e.stopPropagation(); onToggleFollow(p.id); }}
-                      className={`flex items-center justify-center w-5 h-5 border border-brand-blue transition-all opacity-0 group-hover:opacity-100 shrink-0 ${
+                      className={`flex items-center justify-center w-5 h-5 border transition-all opacity-0 group-hover:opacity-100 shrink-0 ${
                         isFollowing
-                          ? 'bg-white text-gray-400 hover:bg-red-50 hover:text-brand-red hover:border-brand-red'
-                          : 'bg-brand-blue text-white hover:bg-blue-800'
+                          ? 'bg-green-100 text-green-700 border-green-500 hover:bg-green-200'
+                          : 'bg-brand-blue text-white border-brand-blue hover:bg-blue-800'
                       }`}
                       title={isFollowing ? 'Unfollow' : 'Follow'}
                     >
                       {isFollowing
-                        ? <UserCheck className="w-3 h-3" />
+                        ? <UserMinus className="w-3 h-3" />
                         : <UserPlus className="w-3 h-3" />
                       }
                     </button>

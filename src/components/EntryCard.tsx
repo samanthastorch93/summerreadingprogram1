@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { MessageCircle, BookOpen, Headphones, MoreHorizontal, PlusCircle, X, Loader2, Camera, EyeOff, Eye, ChevronDown, Link, UserPlus, UserCheck } from 'lucide-react';
+import { MessageCircle, BookOpen, HeadPhones, MoreHorizontal, PlusCircle, X, Loader2, Camera, EyeOff, Eye, ChevronDown, Link, UserPlus, UserMinus } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import {
   timeAgo,
@@ -366,12 +366,12 @@ export default function EntryCard({
               onClick={() => onToggleFollow(profile.id)}
               className={`flex items-center gap-1 text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 border-2 border-brand-blue transition-all opacity-0 group-hover:opacity-100 shrink-0 ${
                 followingIds.has(profile.id)
-                  ? 'bg-white text-gray-400 hover:bg-red-50 hover:text-brand-red hover:border-brand-red'
+                  ? 'bg-green-100 text-green-700 border-green-500 hover:bg-green-200'
                   : 'bg-brand-blue text-white hover:bg-blue-800'
               }`}
             >
               {followingIds.has(profile.id)
-                ? <><UserCheck className="w-2.5 h-2.5" /> Following</>
+                ? <><UserMinus className="w-2.5 h-2.5" /> Following</>
                 : <><UserPlus className="w-2.5 h-2.5" /> Follow</>
               }
             </button>
