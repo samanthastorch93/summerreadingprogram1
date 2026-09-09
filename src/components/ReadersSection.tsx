@@ -1,5 +1,5 @@
 import { useRef, useState, useEffect } from 'react';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { ChevronLeft, ChevronRight, UserPlus, UserCheck } from 'lucide-react';
 import type { Profile } from '../lib/types';
 import AvatarIcon from './AvatarIcon';
 
@@ -8,9 +8,11 @@ interface Props {
   selectedUserId: string | null;
   currentUserId: string;
   onSelect: (userId: string | null) => void;
+  followingIds: Set<string>;
+  onToggleFollow: (targetUserId: string) => void;
 }
 
-export default function ReadersSection({ profiles, selectedUserId, currentUserId, onSelect }: Props) {
+export default function ReadersSection({ profiles, selectedUserId, currentUserId, onSelect, followingIds, onToggleFollow }: Props) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [canScrollLeft, setCanScrollLeft] = useState(false);
   const [canScrollRight, setCanScrollRight] = useState(false);
@@ -62,29 +64,47 @@ export default function ReadersSection({ profiles, selectedUserId, currentUserId
             {profiles.map((p) => {
               const isSelected = selectedUserId === p.id;
               const isSelf = p.id === currentUserId;
+              const isFollowing = followingIds.has(p.id);
               return (
-                <button
+                <div
                   key={p.id}
-                  onClick={() => onSelect(isSelected ? null : p.id)}
-                  className={`flex items-center gap-2 shrink-0 border-2 border-brand-blue px-2.5 py-1.5 transition-all ${
-                    isSelected
-                      ? 'bg-gray-900 text-white'
-                      : 'bg-white hover:bg-brand-yellow'
-                  }`}
+                  className="group relative flex items-center gap-2 shrink-0 border-2 border-brand-blue px-2.5 py-1.5 transition-all"
+                  style={{ background: isSelected ? '#111827' : undefined }}
                 >
-                  {p.avatar_url ? (
-                    <img
-                      src={p.avatar_url}
-                      alt=""
-                      className="w-6 h-6 object-cover shrink-0 border border-brand-blue"
-                    />
-                  ) : (
-                    <AvatarIcon avatarColor={p.avatar_color} userId={p.id} size="sm" className="border border-brand-blue" />
+                  <button
+                    onClick={() => onSelect(isSelected ? null : p.id)}
+                    className={`flex items-center gap-2 ${isSelected ? 'text-white' : 'hover:bg-brand-yellow'}`}
+                  >
+                    {p.avatar_url ? (
+                      <img
+                        src={p.avatar_url}
+                        alt=""
+                        className="w-6 h-6 object-cover shrink-0 border border-brand-blue"
+                      />
+                    ) : (
+                      <AvatarIcon avatarColor={p.avatar_color} userId={p.id} size="sm" className="border border-brand-blue" />
+                    )}
+                    <span className="text-xs font-medium whitespace-nowrap" style={{ color: isSelected ? 'white' : undefined }}>
+                      {p.username}
+                    </span>
+                  </button>
+                  {!isSelf && (
+                    <button
+                      onClick={(e) => { e.stopPropagation(); onToggleFollow(p.id); }}
+                      className={`flex items-center justify-center w-5 h-5 border border-brand-blue transition-all opacity-0 group-hover:opacity-100 shrink-0 ${
+                        isFollowing
+                          ? 'bg-white text-gray-400 hover:bg-red-50 hover:text-brand-red hover:border-brand-red'
+                          : 'bg-brand-blue text-white hover:bg-blue-800'
+                      }`}
+                      title={isFollowing ? 'Unfollow' : 'Follow'}
+                    >
+                      {isFollowing
+                        ? <UserCheck className="w-3 h-3" />
+                        : <UserPlus className="w-3 h-3" />
+                      }
+                    </button>
                   )}
-                  <span className="text-xs font-medium whitespace-nowrap">
-                    {p.username}
-                  </span>
-                </button>
+                </div>
               );
             })}
           </div>

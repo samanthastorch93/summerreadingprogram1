@@ -26,6 +26,7 @@ interface Props {
   onLogBook?: (book: BookSearchResult) => void;
   feedMode: 'everyone' | 'following';
   followingIds: Set<string>;
+  onToggleFollow: (targetUserId: string) => void;
 }
 
 const TABS: { key: FilterTab; label: string }[] = [
@@ -35,7 +36,7 @@ const TABS: { key: FilterTab; label: string }[] = [
   { key: 'finished', label: 'Finished' },
 ];
 
-export default function Feed({ currentUser, allProfiles, selectedUserId, refreshKey, focusedEntryId, onRefresh, onEdit, statusFilter, onStatusFilter, onSelectUser, onLogBook, feedMode, followingIds }: Props) {
+export default function Feed({ currentUser, allProfiles, selectedUserId, refreshKey, focusedEntryId, onRefresh, onEdit, statusFilter, onStatusFilter, onSelectUser, onLogBook, feedMode, followingIds, onToggleFollow }: Props) {
   const [items, setItems] = useState<FeedItem[]>([]);
   const [commentedEntryIds, setCommentedEntryIds] = useState<Set<string>>(new Set());
   const [hiddenEntryIds, setHiddenEntryIds] = useState<Set<string>>(new Set());
@@ -292,6 +293,8 @@ export default function Feed({ currentUser, allProfiles, selectedUserId, refresh
                       onRefresh={onRefresh}
                       onSelectUser={onSelectUser}
                       onLogBook={onLogBook}
+                      followingIds={followingIds}
+                      onToggleFollow={onToggleFollow}
                     />
                   );
                 }
@@ -309,6 +312,8 @@ export default function Feed({ currentUser, allProfiles, selectedUserId, refresh
                     onEdit={onEdit}
                     onSelectUser={onSelectUser}
                     onLogBook={onLogBook}
+                    followingIds={followingIds}
+                    onToggleFollow={onToggleFollow}
                   />
                 );
               })}

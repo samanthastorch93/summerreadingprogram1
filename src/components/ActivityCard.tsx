@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { Clock, BookOpen, MoreHorizontal, Loader2, Check, X, Camera, Trash2, MessageCircle, ChevronDown, PlusCircle, Link } from 'lucide-react';
+import { Clock, BookOpen, MoreHorizontal, Loader2, Check, X, Camera, Trash2, MessageCircle, ChevronDown, PlusCircle, Link, UserPlus, UserCheck } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { timeAgo, formatTimeRead, statusLabel, countWords } from '../lib/types';
 import type { TimeLog, Profile, Status, BookSearchResult } from '../lib/types';
@@ -26,9 +26,11 @@ interface Props {
   onRefresh: () => void;
   onSelectUser: (userId: string) => void;
   onLogBook?: (book: BookSearchResult) => void;
+  followingIds: Set<string>;
+  onToggleFollow: (targetUserId: string) => void;
 }
 
-export default function ActivityCard({ log, allProfiles, currentUser, onRefresh, onSelectUser, onLogBook }: Props) {
+export default function ActivityCard({ log, allProfiles, currentUser, onRefresh, onSelectUser, onLogBook, followingIds, onToggleFollow }: Props) {
   const profile = allProfiles.find((p) => p.id === log.user_id) ?? log.profile;
   const book = log.book;
   const isFinishedEvent = log.minutes_added === 0 && log.status_override === 'finished';
@@ -276,44 +278,61 @@ export default function ActivityCard({ log, allProfiles, currentUser, onRefresh,
         ) : (
           <AvatarIcon avatarColor={profile?.avatar_color ?? '#888'} userId={profile?.id ?? ''} size="md" className="border-2 border-brand-blue" />
         )}
-        <p className="text-sm text-gray-700 min-w-0 flex-1">
-          <button
-            onClick={() => { if (profile?.id) { onSelectUser(profile.id); window.scrollTo({ top: 0, behavior: 'smooth' }); } }}
-            className="font-semibold text-gray-900 hover:underline cursor-pointer"
-          >{profile?.username ?? 'Unknown'}</button>
-          {' '}
-          {isFinishedEvent ? (
-            <>
-              <span className="text-gray-500">{isAudiobook ? 'finished listening to' : 'finished reading'}</span>
-            </>
-          ) : (
-            <>
-              <span className="text-gray-500">logged</span>
-              {' '}
-              <span className="font-semibold text-gray-900">{timeLabel}</span>
-              {log.status_override === 'finished' && (
-                <>
-                  {' '}
-                  <span className="text-gray-500">and</span>
-                  {' '}
-                  <span className="text-gray-500">
-                    {isAudiobook ? 'finished listening to' : 'finished reading'}
-                  </span>
-                </>
-              )}
-              {log.status_override && log.status_override !== 'finished' && (
-                <>
-                  {' '}
-                  <span className="text-gray-500">— now</span>
-                  {' '}
-                  <span className="text-gray-900">
-                    {statusLabel(log.status_override, log.entry_type)}
-                  </span>
-                </>
-              )}
-            </>
+        <div className="group/min-w-0 flex-1 flex items-center gap-1.5">
+          <p className="text-sm text-gray-700 min-w-0 flex-1">
+            <button
+              onClick={() => { if (profile?.id) { onSelectUser(profile.id); window.scrollTo({ top: 0, behavior: 'smooth' }); } }}
+              className="font-semibold text-gray-900 hover:underline cursor-pointer"
+            >{profile?.username ?? 'Unknown'}</button>
+            {' '}
+            {isFinishedEvent ? (
+              <>
+                <span className="text-gray-500">{isAudiobook ? 'finished listening to' : 'finished reading'}</span>
+              </>
+            ) : (
+              <>
+                <span className="text-gray-500">logged</span>
+                {' '}
+                <span className="font-semibold text-gray-900">{timeLabel}</span>
+                {log.status_override === 'finished' && (
+                  <>
+                    {' '}
+                    <span className="text-gray-500">and</span>
+                    {' '}
+                    <span className="text-gray-500">
+                      {isAudiobook ? 'finished listening to' : 'finished reading'}
+                    </span>
+                  </>
+                )}
+                {log.status_override && log.status_override !== 'finished' && (
+                  <>
+                    {' '}
+                    <span className="text-gray-500">— now</span>
+                    {' '}
+                    <span className="text-gray-900">
+                      {statusLabel(log.status_override, log.entry_type)}
+                    </span>
+                  </>
+                )}
+              </>
+            )}
+          </p>
+          {!isOwn && profile?.id && (
+            <button
+              onClick={() => onToggleFollow(profile.id)}
+              className={`flex items-center gap-1 text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 border-2 border-brand-blue transition-all opacity-0 group-hover:opacity-100 shrink-0 ${
+                followingIds.has(profile.id)
+                  ? 'bg-white text-gray-400 hover:bg-red-50 hover:text-brand-red hover:border-brand-red'
+                  : 'bg-brand-blue text-white hover:bg-blue-800'
+              }`}
+            >
+              {followingIds.has(profile.id)
+                ? <><UserCheck className="w-2.5 h-2.5" /> Following</>
+                : <><UserPlus className="w-2.5 h-2.5" /> Follow</>
+              }
+            </button>
           )}
-        </p>
+        </div>
         <div className="flex items-center gap-1 shrink-0">
           <span className="text-xs text-gray-400">{timeAgo(log.created_at)}</span>
           <div className="relative" ref={menuRef}>

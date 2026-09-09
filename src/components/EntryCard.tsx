@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { MessageCircle, BookOpen, Headphones, MoreHorizontal, PlusCircle, X, Loader2, Camera, EyeOff, Eye, ChevronDown, Link } from 'lucide-react';
+import { MessageCircle, BookOpen, Headphones, MoreHorizontal, PlusCircle, X, Loader2, Camera, EyeOff, Eye, ChevronDown, Link, UserPlus, UserCheck } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import {
   timeAgo,
@@ -30,6 +30,8 @@ interface Props {
   onEdit?: (entry: ReadingEntry) => void;
   onSelectUser: (userId: string) => void;
   onLogBook?: (book: BookSearchResult) => void;
+  followingIds: Set<string>;
+  onToggleFollow: (targetUserId: string) => void;
 }
 
 const STATUS_STYLES: Record<string, string> = {
@@ -87,6 +89,8 @@ export default function EntryCard({
   onEdit,
   onSelectUser,
   onLogBook,
+  followingIds,
+  onToggleFollow,
 }: Props) {
   const [commentsOpen, setCommentsOpen] = useState(autoExpandComments);
   const [synopsisOpen, setSynopsisOpen] = useState(false);
@@ -348,14 +352,31 @@ export default function EntryCard({
         ) : (
           <AvatarIcon avatarColor={profile?.avatar_color ?? '#888'} userId={profile?.id ?? ''} size="md" className="border-2 border-brand-blue" />
         )}
-        <p className="text-sm text-gray-700 min-w-0 flex-1">
-          <button
-            onClick={() => { if (profile?.id) { onSelectUser(profile.id); window.scrollTo({ top: 0, behavior: 'smooth' }); } }}
-            className="font-semibold text-gray-900 hover:underline cursor-pointer"
-          >{profile?.username ?? 'Unknown'}</button>
-          {' '}
-          <span className="text-gray-500">{phrase}</span>
-        </p>
+        <div className="group/min-w-0 flex-1 flex items-center gap-1.5">
+          <p className="text-sm text-gray-700 min-w-0 flex-1">
+            <button
+              onClick={() => { if (profile?.id) { onSelectUser(profile.id); window.scrollTo({ top: 0, behavior: 'smooth' }); } }}
+              className="font-semibold text-gray-900 hover:underline cursor-pointer"
+            >{profile?.username ?? 'Unknown'}</button>
+            {' '}
+            <span className="text-gray-500">{phrase}</span>
+          </p>
+          {!isOwn && profile?.id && (
+            <button
+              onClick={() => onToggleFollow(profile.id)}
+              className={`flex items-center gap-1 text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 border-2 border-brand-blue transition-all opacity-0 group-hover:opacity-100 shrink-0 ${
+                followingIds.has(profile.id)
+                  ? 'bg-white text-gray-400 hover:bg-red-50 hover:text-brand-red hover:border-brand-red'
+                  : 'bg-brand-blue text-white hover:bg-blue-800'
+              }`}
+            >
+              {followingIds.has(profile.id)
+                ? <><UserCheck className="w-2.5 h-2.5" /> Following</>
+                : <><UserPlus className="w-2.5 h-2.5" /> Follow</>
+              }
+            </button>
+          )}
+        </div>
         <span className="text-xs text-gray-400 shrink-0">{timeAgo(entry.created_at)}</span>
 
         {/* Ellipsis menu — own entries or moderator */}

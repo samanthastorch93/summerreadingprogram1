@@ -150,8 +150,6 @@ export default function App() {
           onSelectSelf={() => { setSelectedUserId(profile.id); setFeedMode('everyone'); }}
           onClearSelectedUser={() => { setSelectedUserId(null); setFeedMode('everyone'); }}
           followingIds={followingIds}
-          isFollowingSelected={selectedUserId ? followingIds.has(selectedUserId) : false}
-          onToggleFollow={toggleFollow}
           feedMode={feedMode}
           onFeedModeChange={setFeedMode}
         />
@@ -160,6 +158,8 @@ export default function App() {
           selectedUserId={selectedUserId}
           currentUserId={profile.id}
           onSelect={setSelectedUserId}
+          followingIds={followingIds}
+          onToggleFollow={toggleFollow}
         />
       </div>
 
@@ -177,6 +177,7 @@ export default function App() {
         onLogBook={(book) => { setPrefillBook(book); setShowLogModal(true); }}
         feedMode={feedMode}
         followingIds={followingIds}
+        onToggleFollow={toggleFollow}
       />
 
       {(showLogModal || editEntry) && (

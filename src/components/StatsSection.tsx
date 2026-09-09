@@ -1,5 +1,4 @@
 import { useEffect, useState } from 'react';
-import { UserPlus, UserCheck } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 
 import type { Status } from '../lib/types';
@@ -20,15 +19,13 @@ interface Props {
   onSelectSelf: () => void;
   onClearSelectedUser: () => void;
   followingIds: Set<string>;
-  isFollowingSelected: boolean;
-  onToggleFollow: (targetUserId: string) => void;
   feedMode: 'everyone' | 'following';
   onFeedModeChange: (mode: 'everyone' | 'following') => void;
 }
 
 type StatsMode = 'mine' | 'everyone' | 'following' | 'selected';
 
-export default function StatsSection({ userId, selectedUserId, selectedUserName, statusFilter, onStatusFilter, onSelectSelf, onClearSelectedUser, followingIds, isFollowingSelected, onToggleFollow, feedMode, onFeedModeChange }: Props) {
+export default function StatsSection({ userId, selectedUserId, selectedUserName, statusFilter, onStatusFilter, onSelectSelf, onClearSelectedUser, followingIds, feedMode, onFeedModeChange }: Props) {
   const [mode, setMode] = useState<StatsMode>('everyone');
   const [myStats, setMyStats] = useState<Stats>({ totalMinutes: 0, wantToReadCount: 0, inProgressCount: 0, finishedCount: 0 });
   const [everyoneStats, setEveryoneStats] = useState<Stats>({ totalMinutes: 0, wantToReadCount: 0, inProgressCount: 0, finishedCount: 0 });
@@ -142,21 +139,6 @@ export default function StatsSection({ userId, selectedUserId, selectedUserName,
               }`}
             >
               {firstName}&rsquo;s Stats
-            </button>
-          )}
-          {selectedUserId && selectedUserId !== userId && (
-            <button
-              onClick={() => onToggleFollow(selectedUserId)}
-              className={`flex items-center gap-1 text-xs font-bold uppercase tracking-widest px-2 py-1 border-2 border-brand-blue transition-all ml-auto ${
-                isFollowingSelected
-                  ? 'bg-white text-gray-400 hover:bg-red-50 hover:text-brand-red hover:border-brand-red'
-                  : 'bg-brand-red text-white hover:bg-red-700'
-              }`}
-            >
-              {isFollowingSelected
-                ? <><UserCheck className="w-3 h-3" /> Following</>
-                : <><UserPlus className="w-3 h-3" /> Follow</>
-              }
             </button>
           )}
         </div>
