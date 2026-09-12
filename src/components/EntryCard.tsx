@@ -530,8 +530,15 @@ export default function EntryCard({
                 />
               </button>
             ) : isAudiobook && book.source_url ? (
-              <FaviconCover url={book.source_url} entryId={entry.id} />
-            ) : !isAudiobook ? (
+              <button
+                type="button"
+                onClick={() => setSynopsisOpen(true)}
+                className="block cursor-pointer focus:outline-none"
+                title="View synopsis"
+              >
+                <FaviconCover url={book.source_url} entryId={entry.id} />
+              </button>
+            ) : (
               <button
                 type="button"
                 onClick={() => setSynopsisOpen(true)}
@@ -539,19 +546,14 @@ export default function EntryCard({
                 title="View synopsis"
               >
                 <div
-                  className="w-12 h-[68px] border-2 border-brand-blue flex items-center justify-center hover:opacity-80 transition-opacity"
+                  className={`w-12 h-[68px] border-2 border-brand-blue flex items-center justify-center hover:opacity-80 transition-opacity`}
                   style={{ background: coverPairing(entry.id).bg }}
                 >
-                  <BookOpen className="w-5 h-5" style={{ color: coverPairing(entry.id).icon }} />
+                  {isAudiobook
+                    ? <Headphones className="w-5 h-5" style={{ color: coverPairing(entry.id).icon }} />
+                    : <BookOpen className="w-5 h-5" style={{ color: coverPairing(entry.id).icon }} />}
                 </div>
               </button>
-            ) : (
-              <div
-                className="w-12 h-[68px] border-2 border-brand-blue flex items-center justify-center"
-                style={{ background: coverPairing(entry.id).bg }}
-              >
-                <Headphones className="w-5 h-5" style={{ color: coverPairing(entry.id).icon }} />
-              </div>
             )}
           </div>
 
@@ -855,7 +857,7 @@ export default function EntryCard({
       />
     )}
 
-    {synopsisOpen && book && !isAudiobook && (
+    {synopsisOpen && book && (
       <BookSynopsisModal
         bookId={book.id}
         title={book.title}
