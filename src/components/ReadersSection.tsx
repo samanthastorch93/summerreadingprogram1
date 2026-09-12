@@ -43,9 +43,10 @@ export default function ReadersSection({ profiles, selectedUserId, currentUserId
 
   if (profiles.length === 0) return null;
 
-  const visibleProfiles = feedMode === 'following'
+  const visibleProfiles = (feedMode === 'following'
     ? profiles.filter((p) => p.id !== currentUserId && followingIds.has(p.id))
-    : profiles;
+    : profiles
+  ).slice().sort((a: Profile, b: Profile) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
 
   return (
     <section className="border-2 border-t-0 border-brand-blue bg-brand-pink">
