@@ -280,6 +280,25 @@ Deno.serve(async (req: Request) => {
     return new Response(null, { status: 200, headers: corsHeaders });
   }
 
+  // Only the scheduled database job may trigger the digest. It presents a shared
+  // secret that lives in a private table no client role can read.
+  {
+    const guard = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+    );
+    const presented = req.headers.get("x-internal-secret") ?? "";
+    const { data: authorized } = await guard.rpc("verify_internal_secret", {
+      p_secret: presented,
+    });
+    if (authorized !== true) {
+      return new Response(
+        JSON.stringify({ error: "Unauthorized" }),
+        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
+    }
+  }
+
   const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY");
   if (!RESEND_API_KEY) {
     console.error("RESEND_API_KEY secret is not configured.");

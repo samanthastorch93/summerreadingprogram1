@@ -17,6 +17,7 @@ import LikeButton from './LikeButton';
 import MentionTextarea from './MentionTextarea';
 import NoteContent from './NoteContent';
 import { sendMentionNotifications } from '../lib/mentions';
+import { safeHttpUrl } from '../lib/safeUrl';
 
 interface Props {
   entry: ReadingEntry;
@@ -429,7 +430,7 @@ export default function EntryCard({
                 </button>
                 {!isAudiobook && (
                   <a
-                    href={book.bookshop_url ?? `https://bookshop.org/beta-search?keywords=${encodeURIComponent(book.title + ' ' + book.author)}`}
+                    href={safeHttpUrl(book.bookshop_url) ?? `https://bookshop.org/beta-search?keywords=${encodeURIComponent(book.title + ' ' + book.author)}`}
                     target="_blank"
                     rel="noopener noreferrer"
                     onClick={() => setMenuOpen(false)}
@@ -440,7 +441,7 @@ export default function EntryCard({
                 )}
                 {isAudiobook && (
                   <a
-                    href={book.bookshop_url ?? `https://libro.fm/search?q=${encodeURIComponent(book.title + ' ' + book.author)}`}
+                    href={safeHttpUrl(book.bookshop_url) ?? `https://libro.fm/search?q=${encodeURIComponent(book.title + ' ' + book.author)}`}
                     target="_blank"
                     rel="noopener noreferrer"
                     onClick={() => setMenuOpen(false)}
@@ -529,14 +530,14 @@ export default function EntryCard({
                   }}
                 />
               </button>
-            ) : isAudiobook && book.source_url ? (
+            ) : isAudiobook && safeHttpUrl(book.source_url) ? (
               <button
                 type="button"
                 onClick={() => setSynopsisOpen(true)}
                 className="block cursor-pointer focus:outline-none"
                 title="View synopsis"
               >
-                <FaviconCover url={book.source_url} entryId={entry.id} />
+                <FaviconCover url={safeHttpUrl(book.source_url)!} entryId={entry.id} />
               </button>
             ) : (
               <button
@@ -561,9 +562,9 @@ export default function EntryCard({
           <div className="flex-1 min-w-0">
             <div className="flex items-start justify-between gap-1">
               <div className="min-w-0">
-                {isAudiobook && book.source_url ? (
+                {isAudiobook && safeHttpUrl(book.source_url) ? (
                   <a
-                    href={book.source_url}
+                    href={safeHttpUrl(book.source_url)!}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="font-semibold text-gray-900 text-base leading-snug hover:underline block"

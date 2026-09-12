@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import { X, Eye, EyeOff } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import type { Profile } from '../lib/types';
+import { UserFacingError } from '../lib/errors';
 import AvatarIcon from './AvatarIcon';
 
 interface Props {
@@ -64,12 +65,13 @@ export default function ProfileModal({ profile, onClose, onSaved }: Props) {
         }
       );
       if (!res.ok) {
-        const body = await res.json();
-        throw new Error(body.error ?? 'Deletion failed');
+        console.error('delete-account failed', res.status);
+        throw new UserFacingError('We could not delete your account. Please try again.');
       }
       setDeleteStep('deleted');
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : 'Something went wrong');
+      console.error(e);
+      setError(e instanceof UserFacingError ? e.message : 'Something went wrong. Please try again.');
       setDeleteStep('idle');
     } finally {
       setDeleting(false);
@@ -93,11 +95,11 @@ export default function ProfileModal({ profile, onClose, onSaved }: Props) {
     try {
       const { data: existing } = await supabase
         .from('profiles').select('id').eq('username', cleanUsername).neq('id', profile.id).maybeSingle();
-      if (existing) throw new Error('Username already taken.');
+      if (existing) throw new UserFacingError('Username already taken.');
 
       const { data: reserved } = await supabase
         .from('reserved_usernames').select('reserved_for').eq('username', cleanUsername).maybeSingle();
-      if (reserved && reserved.reserved_for !== profile.id) throw new Error('Username not available.');
+      if (reserved && reserved.reserved_for !== profile.id) throw new UserFacingError('Username not available.');
 
       let avatarUrl = profile.avatar_url;
 
@@ -128,7 +130,7 @@ export default function ProfileModal({ profile, onClose, onSaved }: Props) {
           email: user?.email ?? '',
           password: currentPassword,
         });
-        if (reAuthErr) throw new Error('Current password is incorrect.');
+        if (reAuthErr) throw new UserFacingError('Current password is incorrect.');
         const { error: pwErr } = await supabase.auth.updateUser({ password });
         if (pwErr) throw pwErr;
         setPasswordSuccess(true);
@@ -141,7 +143,8 @@ export default function ProfileModal({ profile, onClose, onSaved }: Props) {
       onSaved(updated);
       onClose();
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : 'Something went wrong');
+      console.error(e);
+      setError(e instanceof UserFacingError ? e.message : 'Something went wrong. Please try again.');
     } finally {
       setLoading(false);
     }

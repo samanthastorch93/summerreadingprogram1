@@ -26,7 +26,10 @@ export default function AuthModal({ onProfileCreated }: Props) {
     setLoading(true);
     const { error: err } = await supabase.auth.resetPasswordForEmail(email.trim());
     setLoading(false);
-    if (err) { setError(err.message); } else { setResetSent(true); }
+    if (err) { console.error(err); }
+    // Always report the same outcome so the form cannot be used to test which
+    // email addresses have an account.
+    setResetSent(true);
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -37,7 +40,10 @@ export default function AuthModal({ onProfileCreated }: Props) {
     if (mode === 'login') {
       const client = rememberMe ? supabase : createSessionClient();
       const { error: err } = await client.auth.signInWithPassword({ email, password });
-      if (err) setError(err.message);
+      if (err) {
+        console.error(err);
+        setError('That email and password combination is not correct.');
+      }
     } else {
       if (!displayName.trim() || !username.trim()) {
         setError('Name and username are required.');
@@ -66,7 +72,12 @@ export default function AuthModal({ onProfileCreated }: Props) {
       if (reserved) { setError('Username not available.'); setLoading(false); return; }
 
       const { data: authData, error: signUpErr } = await supabase.auth.signUp({ email, password });
-      if (signUpErr) { setError(signUpErr.message); setLoading(false); return; }
+      if (signUpErr) {
+        console.error(signUpErr);
+        setError('We could not create your account. Please check your details and try again.');
+        setLoading(false);
+        return;
+      }
 
       if (authData.user) {
         const { count } = await supabase.from('profiles').select('*', { count: 'exact', head: true });

@@ -6,6 +6,7 @@ import type { Status, EntryType, Profile, ReadingEntry } from '../lib/types';
 import BookSearch from './BookSearch';
 import MentionTextarea from './MentionTextarea';
 import { sendMentionNotifications } from '../lib/mentions';
+import { safeHttpUrl, isSafeHttpUrl } from '../lib/safeUrl';
 
 interface PrefillBook {
   title: string;
@@ -132,6 +133,10 @@ export default function LogEntryModal({ currentUser, allProfiles, editEntry, pre
   async function handleSaveEntry() {
     if (!title.trim()) { setError('Please enter a title.'); return; }
     if (!isEditing && countWords(note) > 150) { setError('Note exceeds the 150 word limit.'); return; }
+    if (entryType === 'audiobook' && listenUrl.trim() && !isSafeHttpUrl(listenUrl)) {
+      setError('The listen link must start with http:// or https://');
+      return;
+    }
     setSaving(true);
     setError(null);
 
@@ -180,7 +185,7 @@ export default function LogEntryModal({ currentUser, allProfiles, editEntry, pre
           open_library_cover_id: coverId ? String(coverId) : null,
           cover_url: coverUrl ?? null,
           bookshop_url: bookshopUrl,
-          source_url: entryType === 'audiobook' ? (listenUrl.trim() || null) : null,
+          source_url: entryType === 'audiobook' ? safeHttpUrl(listenUrl) : null,
           narrator: entryType === 'audiobook' ? (narrator.trim() || null) : null,
           description: description ?? null,
         })

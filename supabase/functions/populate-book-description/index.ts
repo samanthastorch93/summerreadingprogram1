@@ -237,6 +237,20 @@ Deno.serve(async (req: Request) => {
     Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
   );
 
+  // This function runs with service-role privileges and is only ever invoked by the
+  // database trigger, so it must prove the caller is that trigger. The shared secret
+  // lives in a private table no client role can read.
+  const presented = req.headers.get("x-internal-secret") ?? "";
+  const { data: authorized } = await supabase.rpc("verify_internal_secret", {
+    p_secret: presented,
+  });
+  if (authorized !== true) {
+    return new Response(
+      JSON.stringify({ error: "Unauthorized" }),
+      { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+    );
+  }
+
   let body: { book_id?: string };
   try {
     body = await req.json();
